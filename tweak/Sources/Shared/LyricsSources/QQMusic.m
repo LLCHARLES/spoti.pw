@@ -12,10 +12,6 @@
 
 static NSString *const kSearch = @"https://api.vkeys.cn/v2/music/tencent/search/song";
 static NSString *const kLyric = @"https://api.vkeys.cn/v2/music/tencent/lyric";
-static const NSTimeInterval kTimeout = 5;
-// A QQ Music recording is only taken when its length is this close to the track's, so the words
-// fall on the same beat.
-static const NSInteger kLengthSlack = 4;
 static const NSUInteger kTriedSongs = 3;
 
 static void get(NSString *base, NSDictionary<NSString *, NSString *> *query, void (^done)(NSDictionary *root)) {
