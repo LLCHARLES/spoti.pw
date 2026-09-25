@@ -235,17 +235,24 @@ SGLyricsAsk SGQQMusicAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *
             else { SGLog(@"qqmusic: no recording of %@", title); done(nil); return; }
         }
         NSArray *ids = [[fitting valueForKey:@"id"] subarrayWithRange:NSMakeRange(0, MIN(fitting.count, kTriedSongs))];
-        // try up to kTriedSongs until one has lyrics
+        // try up to kTriedSongs until one has lyrics. The block recurses into itself, so a weak
+        // reference is used inside it to break the ARC retain cycle a __block capture would make.
         __block NSUInteger index = 0;
-        __block void (^tryNext)(void) = ^{
+        __block void (^tryNext)(void) = nil;
+        __weak void (^weakTryNext)(void) = nil;
+        tryNext = ^{
             if (index >= ids.count) { done(nil); return; }
             NSString *songID = [ids[index] stringValue];
             index++;
             lyricFor(songID, ^(SGLyricsResult *result) {
                 if (result) done(result);
-                else tryNext();
+                else {
+                    void (^strong)(void) = weakTryNext;
+                    if (strong) strong();
+                }
             });
         };
+        weakTryNext = tryNext;
         tryNext();
     });
 };
