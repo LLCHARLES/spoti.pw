@@ -237,7 +237,7 @@ SGLyricsAsk SGQQMusicAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *
         NSArray *ids = [[fitting valueForKey:@"id"] subarrayWithRange:NSMakeRange(0, MIN(fitting.count, kTriedSongs))];
         // try up to kTriedSongs until one has lyrics
         __block NSUInteger index = 0;
-        void (^tryNext)(void) = ^{
+        __block void (^tryNext)(void) = ^{
             if (index >= ids.count) { done(nil); return; }
             NSString *songID = [ids[index] stringValue];
             index++;
