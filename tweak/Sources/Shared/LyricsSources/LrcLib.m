@@ -3,13 +3,15 @@
 // ones Musixmatch may show nobody. It times lines and not words, which is the whole point of putting
 // it last — the estimate inside a line is still a sweep, where Spotify's own lyrics only scroll.
 //
-// Its /api/get wants the length to agree almost exactly and answers 404 otherwise, so a miss falls
-// back to /api/search, which answers with whole recordings to pick the closest of. LRCLIB asks that
+// The exact lookup goes through the charlesl.qzz.io mirror of LRCLIB, which carries a translatedLyrics
+// field (an LRC sheet in Chinese) alongside the usual lyrics. /api/get wants the length to agree
+// almost exactly and answers 404 otherwise, so a miss falls back to lrclib.net's /api/search, which
+// answers with whole recordings to pick the closest of — but has no translations. LRCLIB asks that
 // clients say who they are, and the mod does.
 #import "Core/SGCore.h"
 #import "LyricsSources.h"
 
-static NSString *const kGet = @"https://lrclib.net/api/get";
+static NSString *const kGet = @"https://charlesl.qzz.io/api/get";
 static NSString *const kSearch = @"https://lrclib.net/api/search";
 // Line timing is only worth taking from a recording of about the same length as the one playing.
 static const NSInteger kLengthSlack = 4;
@@ -64,6 +66,25 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
     return SGKaraokeEstimatedLines(starts, texts);
 }
 
+// The charlesl.qzz.io mirror of LRCLIB carries a translatedLyrics field: an LRC sheet with its own
+// timestamps, in Chinese. Each translated line is lined up with the closest original by start time
+// and set on the line, so the redesign shows it beneath the words.
+static void applyLrcTranslation(SGLyricsResult *lyrics, NSString *translatedLRC) {
+    if (!lyrics || !lyrics.karaokeLines.count) return;
+    NSArray<SGKaraokeLine *> *translated = linesFromLRC(translatedLRC);
+    if (!translated.count) return;
+    for (SGKaraokeLine *line in lyrics.karaokeLines) {
+        NSUInteger best = 0;
+        NSInteger minDiff = NSIntegerMax;
+        for (NSUInteger i = 0; i < translated.count; i++) {
+            NSInteger diff = labs(line.start - translated[i].start);
+            if (diff < minDiff) { minDiff = diff; best = i; }
+        }
+        NSString *text = SGKaraokeLineText(translated[best]);
+        if (text.length && ![text isEqualToString:SGKaraokeLineText(line)]) line.translation = text;
+    }
+}
+
 static SGLyricsResult *resultFrom(NSDictionary *record) {
     if (![record isKindOfClass:NSDictionary.class]) return nil;
     SGLyricsResult *result = [SGLyricsResult new];
@@ -79,19 +100,24 @@ static SGLyricsResult *resultFrom(NSDictionary *record) {
         SGLyricsPageLines(lines, &starts, &texts);
         result.starts = starts;
         result.texts = texts;
-        return result;
+    } else if ([plain isKindOfClass:NSString.class] && [plain length]) {
+        // Nothing timed, but the words still beat an empty page when no other source has any.
+        NSMutableArray<NSNumber *> *starts = [NSMutableArray array];
+        NSMutableArray<NSString *> *texts = [NSMutableArray array];
+        for (NSString *row in [plain componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
+            [starts addObject:@0];
+            [texts addObject:row.length ? row : @"♪"];
+        }
+        result.starts = starts;
+        result.texts = texts;
+        result.karaokeLines = SGKaraokeStaticLines(texts);
+    } else return nil;
+    // The mirror's translatedLyrics is Chinese; show it when asked for Chinese or Any.
+    id translated = record[@"translatedLyrics"];
+    if ([translated isKindOfClass:NSString.class] && [translated length]) {
+        NSString *lang = SGLyricsTranslationLanguage();
+        if (!lang.length || [lang hasPrefix:@"zh"]) applyLrcTranslation(result, translated);
     }
-    // Nothing timed, but the words still beat an empty page when no other source has any.
-    if (![plain isKindOfClass:NSString.class] || ![plain length]) return nil;
-    NSMutableArray<NSNumber *> *starts = [NSMutableArray array];
-    NSMutableArray<NSString *> *texts = [NSMutableArray array];
-    for (NSString *row in [plain componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
-        [starts addObject:@0];
-        [texts addObject:row.length ? row : @"♪"];
-    }
-    result.starts = starts;
-    result.texts = texts;
-    result.karaokeLines = SGKaraokeStaticLines(texts);
     return result;
 }
 
