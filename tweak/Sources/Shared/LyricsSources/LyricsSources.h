@@ -126,6 +126,7 @@ extern SGLyricsAsk SGBiniLyricsAsk;
 extern SGLyricsAsk SGMusixmatchAsk;
 extern SGLyricsAsk SGUnisonAsk;
 extern SGLyricsAsk SGNetEaseAsk;
+extern SGLyricsAsk SGQQMusicAsk;
 extern SGLyricsAsk SGLrcLibAsk;
 
 UIViewController *SGLyricsSourcesPage(void);   // the ordered list on the Lyrics page

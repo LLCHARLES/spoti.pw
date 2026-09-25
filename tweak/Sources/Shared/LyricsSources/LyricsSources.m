@@ -157,6 +157,7 @@ NSArray<SGLyricsProvider *> *SGLyricsAllProviders(void) {
             make(@"musixmatch", @"Musixmatch", @"Spotify's licensed catalogue", SGMusixmatchAsk),
             make(@"unison", @"Unison", @"Hand-timed, few tracks", SGUnisonAsk),
             make(@"netease", @"NetEase", @"Word timing, censored", SGNetEaseAsk),
+            make(@"qqmusic", @"QQ Music", @"Word timing, Chinese translation", SGQQMusicAsk),
             make(@"lrclib", @"LRCLIB", @"Line timing, open fallback", SGLrcLibAsk),
         ];
     });
