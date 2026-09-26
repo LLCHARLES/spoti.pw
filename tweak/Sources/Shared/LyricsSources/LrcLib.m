@@ -1,7 +1,8 @@
 // LRCLIB, the floor of the order. It is an open library with no key and no catalogue to license, so
 // it holds what the rest cannot: the tracks Apple's word by word programme never reached, and the
-// ones Musixmatch may show nobody. It times lines and not words, which is the whole point of putting
-// it last — the estimate inside a line is still a sweep, where Spotify's own lyrics only scroll.
+// ones Musixmatch may show nobody. Its own records time lines and not words, but the charlesl.qzz.io
+// mirror proxies QQ Music and ships a yrcLyrics field when it has one, which is word timed, so a
+// record from the mirror can sweep word by word.
 //
 // The exact lookup goes through the charlesl.qzz.io mirror of LRCLIB, which carries a translatedLyrics
 // field (an LRC sheet in Chinese) alongside the usual lyrics. /api/get wants the length to agree
@@ -23,6 +24,7 @@ static NSDictionary<NSString *, NSString *> *headers(void) {
 // [00:34.30] Look — the timestamp in minutes, seconds and hundredths, or thousandths where a line
 // carries three digits. A line may be stamped more than once when it is sung more than once, and
 // the tags LRC opens with ([ar:…], [length:…]) are not timestamps, so they fall out on their own.
+// The mirror marks an absent translation with "//"; those are skipped so a blank never shows.
 static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
     static NSRegularExpression *stamp;
     static dispatch_once_t once;
@@ -50,6 +52,7 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
         }
         if (!at.count) continue;
         NSString *text = [[row substringFromIndex:end] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if ([text isEqualToString:@"//"]) continue;
         for (NSNumber *ms in at) [stamped addObject:@{@"ms": ms, @"text": text}];
     }
     if (!stamped.count) return nil;
@@ -64,6 +67,63 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
         [texts addObject:row[@"text"]];
     }
     return SGKaraokeEstimatedLines(starts, texts);
+}
+
+// The charlesl.qzz.io mirror proxies QQ Music, so when it has a yrcLyrics field it is QQ Music's
+// yrc: [start,dur]word(start,dur)..., with each word's text before its stamp. Parse it for word
+// timing when the mirror serves it; otherwise fall back to the line-timed syncedLyrics.
+static NSArray<SGKaraokeLine *> *linesFromYrc(NSString *yrc) {
+    static NSRegularExpression *header, *piece;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        header = [NSRegularExpression regularExpressionWithPattern:@"^\\[(\\d+),(\\d+)\\]" options:0 error:nil];
+        piece = [NSRegularExpression regularExpressionWithPattern:@"\\((\\d+),(\\d+)\\)" options:0 error:nil];
+    });
+    NSMutableArray<SGKaraokeLine *> *lines = [NSMutableArray array];
+    for (NSString *row in [yrc componentsSeparatedByString:@"\n"]) {
+        NSTextCheckingResult *head = [header firstMatchInString:row options:0 range:NSMakeRange(0, row.length)];
+        if (!head) continue;
+        NSUInteger contentStart = NSMaxRange(head.range);
+        NSArray<NSTextCheckingResult *> *pieces = [piece matchesInString:row options:0 range:NSMakeRange(contentStart, row.length - contentStart)];
+        if (!pieces.count) continue;
+        NSMutableArray<SGKaraokeWord *> *words = [NSMutableArray array];
+        SGKaraokeWord *open = nil;
+        BOOL spaced = YES;
+        NSUInteger prevEnd = contentStart;
+        for (NSUInteger i = 0; i < pieces.count; i++) {
+            NSTextCheckingResult *p = pieces[i];
+            NSString *raw = [row substringWithRange:NSMakeRange(prevEnd, p.range.location - prevEnd)];
+            NSString *text = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+            NSInteger start = [row substringWithRange:[p rangeAtIndex:1]].integerValue;
+            NSInteger end = start + [row substringWithRange:[p rangeAtIndex:2]].integerValue;
+            prevEnd = NSMaxRange(p.range);
+            BOOL unspaced = SGKaraokeUnspacedScript(text);
+            if (text.length && open && !unspaced) {
+                open.text = [open.text stringByAppendingString:text];
+                open.end = end;
+            } else if (text.length) {
+                SGKaraokeWord *word = [SGKaraokeWord new];
+                word.text = text;
+                word.start = start;
+                word.end = end;
+                word.joined = !spaced;
+                [words addObject:word];
+                open = unspaced ? nil : word;
+                spaced = NO;
+            }
+            if (raw.length > text.length || !text.length) {
+                open = nil;
+                spaced = YES;
+            }
+        }
+        if (!words.count) continue;
+        SGKaraokeLine *line = [SGKaraokeLine new];
+        line.words = words;
+        line.start = [row substringWithRange:[head rangeAtIndex:1]].integerValue;
+        line.end = line.start + [row substringWithRange:[head rangeAtIndex:2]].integerValue;
+        [lines addObject:line];
+    }
+    return lines.count ? lines : nil;
 }
 
 // The charlesl.qzz.io mirror of LRCLIB carries a translatedLyrics field: an LRC sheet with its own
@@ -90,28 +150,35 @@ static SGLyricsResult *resultFrom(NSDictionary *record) {
     SGLyricsResult *result = [SGLyricsResult new];
     result.instrumental = [record[@"instrumental"] boolValue];
     if (result.instrumental) return result;
-    id synced = record[@"syncedLyrics"], plain = record[@"plainLyrics"];
-    NSArray<SGKaraokeLine *> *lines = [synced isKindOfClass:NSString.class] ? linesFromLRC(synced) : nil;
+    id yrc = record[@"yrcLyrics"], synced = record[@"syncedLyrics"], plain = record[@"plainLyrics"];
+    // The mirror serves QQ Music's yrc when it has it — word timing, better than line timing.
+    NSArray<SGKaraokeLine *> *lines = [yrc isKindOfClass:NSString.class] && [yrc length] ? linesFromYrc(yrc) : nil;
     if (lines) {
-        result.synced = YES;
+        result.synced = result.wordTimed = YES;
         result.karaokeLines = lines;
-        NSArray<NSNumber *> *starts;
-        NSArray<NSString *> *texts;
-        SGLyricsPageLines(lines, &starts, &texts);
-        result.starts = starts;
-        result.texts = texts;
-    } else if ([plain isKindOfClass:NSString.class] && [plain length]) {
-        // Nothing timed, but the words still beat an empty page when no other source has any.
-        NSMutableArray<NSNumber *> *starts = [NSMutableArray array];
-        NSMutableArray<NSString *> *texts = [NSMutableArray array];
-        for (NSString *row in [plain componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
-            [starts addObject:@0];
-            [texts addObject:row.length ? row : @"♪"];
-        }
-        result.starts = starts;
-        result.texts = texts;
-        result.karaokeLines = SGKaraokeStaticLines(texts);
-    } else return nil;
+    } else {
+        lines = [synced isKindOfClass:NSString.class] ? linesFromLRC(synced) : nil;
+        if (lines) {
+            result.synced = YES;
+            result.karaokeLines = lines;
+            NSArray<NSNumber *> *starts;
+            NSArray<NSString *> *texts;
+            SGLyricsPageLines(lines, &starts, &texts);
+            result.starts = starts;
+            result.texts = texts;
+        } else if ([plain isKindOfClass:NSString.class] && [plain length]) {
+            // Nothing timed, but the words still beat an empty page when no other source has any.
+            NSMutableArray<NSNumber *> *starts = [NSMutableArray array];
+            NSMutableArray<NSString *> *texts = [NSMutableArray array];
+            for (NSString *row in [plain componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
+                [starts addObject:@0];
+                [texts addObject:row.length ? row : @"♪"];
+            }
+            result.starts = starts;
+            result.texts = texts;
+            result.karaokeLines = SGKaraokeStaticLines(texts);
+        } else return nil;
+    }
     // The mirror's translatedLyrics is Chinese; show it when asked for Chinese or Any.
     id translated = record[@"translatedLyrics"];
     if ([translated isKindOfClass:NSString.class] && [translated length]) {
@@ -126,16 +193,18 @@ static SGLyricsResult *resultFrom(NSDictionary *record) {
 // a song above the song, and a stub is the one thing a length would have caught.
 static BOOL betterRecord(NSDictionary *record, NSDictionary *best, NSInteger seconds) {
     if (!best) return YES;
-    BOOL synced = [record[@"syncedLyrics"] isKindOfClass:NSString.class] && [record[@"syncedLyrics"] length];
-    BOOL wasSynced = [best[@"syncedLyrics"] isKindOfClass:NSString.class] && [best[@"syncedLyrics"] length];
+    BOOL synced = ([record[@"syncedLyrics"] isKindOfClass:NSString.class] && [record[@"syncedLyrics"] length])
+               || ([record[@"yrcLyrics"] isKindOfClass:NSString.class] && [record[@"yrcLyrics"] length]);
+    BOOL wasSynced = ([best[@"syncedLyrics"] isKindOfClass:NSString.class] && [best[@"syncedLyrics"] length])
+                  || ([best[@"yrcLyrics"] isKindOfClass:NSString.class] && [best[@"yrcLyrics"] length]);
     if (synced != wasSynced) return synced;
     if (seconds > 0) {
         NSInteger off = labs((NSInteger)[record[@"duration"] doubleValue] - seconds);
         NSInteger wasOff = labs((NSInteger)[best[@"duration"] doubleValue] - seconds);
         return off < wasOff;
     }
-    NSString *text = record[@"syncedLyrics"] ?: record[@"plainLyrics"] ?: @"";
-    NSString *wasText = best[@"syncedLyrics"] ?: best[@"plainLyrics"] ?: @"";
+    NSString *text = record[@"syncedLyrics"] ?: record[@"yrcLyrics"] ?: record[@"plainLyrics"] ?: @"";
+    NSString *wasText = best[@"syncedLyrics"] ?: best[@"yrcLyrics"] ?: best[@"plainLyrics"] ?: @"";
     return [text isKindOfClass:NSString.class] && [text length] > [wasText length];
 }
 
