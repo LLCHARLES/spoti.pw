@@ -22,6 +22,8 @@ static void get(NSString *base, NSDictionary<NSString *, NSString *> *query, voi
 
 // [00:34.30] Look — the same LRC shape LRCLIB serves, parsed the same way. A line may be stamped
 // more than once when it is sung more than once, and the tags LRC opens with fall out on their own.
+// QQ Music marks an absent translation with "//"; those are skipped so a blank never shows as a
+// translation line.
 static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
     static NSRegularExpression *stamp;
     static dispatch_once_t once;
@@ -48,6 +50,7 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
         }
         if (!at.count) continue;
         NSString *text = [[row substringFromIndex:end] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if ([text isEqualToString:@"//"]) continue;
         for (NSNumber *ms in at) [stamped addObject:@{@"ms": ms, @"text": text}];
     }
     if (!stamped.count) return nil;
@@ -63,30 +66,36 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
     return SGKaraokeEstimatedLines(starts, texts);
 }
 
-// [0,3420]Des(0,879)pa(879,...)ci(...)...to(...) — the same shape NetEase's yrc has, two numbers
-// to a piece rather than three, so the regex leaves the flag out. Pieces not ending in a space run
-// on into the next one, as a richsync does.
+// [0,3420]Des(0,879)pa(879,...)ci(...)...to(...) — QQ Music stamps each piece's (start,duration)
+// after its text, the opposite of NetEase, so each word's text is the slice before its stamp.
+// Pieces not ending in a space run on into the next one, as a richsync does.
 static NSArray<SGKaraokeLine *> *linesFromYrc(NSString *yrc) {
     static NSRegularExpression *header, *piece;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         header = [NSRegularExpression regularExpressionWithPattern:@"^\\[(\\d+),(\\d+)\\]" options:0 error:nil];
-        piece = [NSRegularExpression regularExpressionWithPattern:@"\\((\\d+),(\\d+)(?:,-?\\d+)?\\)" options:0 error:nil];
+        piece = [NSRegularExpression regularExpressionWithPattern:@"\\((\\d+),(\\d+)\\)" options:0 error:nil];
     });
     NSMutableArray<SGKaraokeLine *> *lines = [NSMutableArray array];
     for (NSString *row in [yrc componentsSeparatedByString:@"\n"]) {
         NSTextCheckingResult *head = [header firstMatchInString:row options:0 range:NSMakeRange(0, row.length)];
         if (!head) continue;
-        NSArray<NSTextCheckingResult *> *pieces = [piece matchesInString:row options:0 range:NSMakeRange(NSMaxRange(head.range), row.length - NSMaxRange(head.range))];
+        NSUInteger contentStart = NSMaxRange(head.range);
+        NSArray<NSTextCheckingResult *> *pieces = [piece matchesInString:row options:0 range:NSMakeRange(contentStart, row.length - contentStart)];
+        if (!pieces.count) continue;
         NSMutableArray<SGKaraokeWord *> *words = [NSMutableArray array];
         SGKaraokeWord *open = nil;
         BOOL spaced = YES;
+        NSUInteger prevEnd = contentStart;
         for (NSUInteger i = 0; i < pieces.count; i++) {
-            NSUInteger from = NSMaxRange(pieces[i].range), to = i + 1 < pieces.count ? pieces[i + 1].range.location : row.length;
-            NSString *raw = [row substringWithRange:NSMakeRange(from, to - from)];
+            NSTextCheckingResult *p = pieces[i];
+            // The text sits before its (start,duration) stamp: from the end of the previous stamp
+            // (or the header, for the first word) up to this stamp's opening parenthesis.
+            NSString *raw = [row substringWithRange:NSMakeRange(prevEnd, p.range.location - prevEnd)];
             NSString *text = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-            NSInteger start = [row substringWithRange:[pieces[i] rangeAtIndex:1]].integerValue;
-            NSInteger end = start + [row substringWithRange:[pieces[i] rangeAtIndex:2]].integerValue;
+            NSInteger start = [row substringWithRange:[p rangeAtIndex:1]].integerValue;
+            NSInteger end = start + [row substringWithRange:[p rangeAtIndex:2]].integerValue;
+            prevEnd = NSMaxRange(p.range);
             BOOL unspaced = SGKaraokeUnspacedScript(text);
             if (text.length && open && !unspaced) {
                 open.text = [open.text stringByAppendingString:text];
@@ -113,6 +122,15 @@ static NSArray<SGKaraokeLine *> *linesFromYrc(NSString *yrc) {
         line.end = line.start + [row substringWithRange:[head rangeAtIndex:2]].integerValue;
         [lines addObject:line];
     }
+    if (!lines.count) return nil;
+    // QQ Music leads every sheet with the song name, the lyricist and the composer stamped as lines,
+    // all of which carry a "-" or "：". They are not sung, so drop the leading run of them.
+    while (lines.count) {
+        NSString *text = SGKaraokeLineText(lines.firstObject);
+        if ([text containsString:@"-"] || [text containsString:@"："] || [text containsString:@":"]) {
+            [lines removeObjectAtIndex:0];
+        } else break;
+    }
     return lines.count ? lines : nil;
 }
 
@@ -134,13 +152,14 @@ static void applyTranslation(SGLyricsResult *lyrics, NSString *translatedLRC) {
     }
 }
 
-// The romanisation is an LRC sheet spelt in the Latin alphabet, the sound of a CJK line. Each roma
-// line is lined up with the closest original by start time, and its words estimated across the
-// line's own time so the sweep lights them as it lights the line's words. The pronunciation shows
-// only when the redesign's Pronunciation switch is on.
-static void applyPronunciation(SGLyricsResult *lyrics, NSString *romaLRC) {
+// The romanisation is a yrc sheet spelt in the Latin alphabet, the sound of a CJK line — the same
+// [start,dur]word(start,dur)... shape as the lyrics, so linesFromYrc parses it word for word. Each
+// roma line is lined up with the closest original by start time, and its own words (already timed)
+// become the line's pronunciation. The pronunciation shows only when the redesign's Pronunciation
+// switch is on.
+static void applyPronunciation(SGLyricsResult *lyrics, NSString *romaYrc) {
     if (!lyrics || !lyrics.karaokeLines.count) return;
-    NSArray<SGKaraokeLine *> *roma = linesFromLRC(romaLRC);
+    NSArray<SGKaraokeLine *> *roma = linesFromYrc(romaYrc);
     if (!roma.count) return;
     for (SGKaraokeLine *line in lyrics.karaokeLines) {
         NSUInteger best = 0;
@@ -151,12 +170,12 @@ static void applyPronunciation(SGLyricsResult *lyrics, NSString *romaLRC) {
         }
         NSString *said = SGKaraokeLineText(roma[best]);
         if (!said.length || [said isEqualToString:SGKaraokeLineText(line)]) continue;
-        // Spelt out without word timing: its words are estimated across the line's own time, as
-        // SGTTML's spoken() does for a pronunciation read as plain text.
-        SGKaraokeLine *spoken = [SGKaraokeEstimatedLines(@[@(line.start), @(MAX(line.end, line.start))], @[said, @""]) firstObject];
-        if (!spoken) continue;
+        // The roma sheet is already word-timed, so reuse its words directly instead of estimating
+        // them across the line's time.
+        SGKaraokeLine *spoken = [SGKaraokeLine new];
+        spoken.words = roma[best].words;
         spoken.start = line.start;
-        spoken.end = MAX(line.end, spoken.words.lastObject.end);
+        spoken.end = MAX(line.end, roma[best].end);
         spoken.align = line.align;
         line.pronunciation = spoken;
     }
