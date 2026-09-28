@@ -1,17 +1,15 @@
-// Lyrics from Musixmatch. It is the catalogue Spotify licenses, and for part of it Musixmatch also
-// has the time of every word (richsync), which Spotify never sends. The token is an anonymous one
-// asked for as Musixmatch's iOS app, so Musixmatch learns the track's id and nothing of the Spotify
-// account. It is the one source that matches by Spotify's own track id, so it never has to guess at
-// a title, and what it learns about the track is passed to the sources asked after it.
+// Lyrics from Musixmatch, through the charlesl.qzz.io proxy. It is the catalogue Spotify licenses,
+// and for part of it Musixmatch also has the time of every word (richsync), which Spotify never
+// sends. The token is the user's own (UserDefaults "musixmatchToken"), and the app id is generated
+// once per device. It is the one source that matches by Spotify's own track id, so it never has to
+// guess at a title, and what it learns about the track is passed to the sources asked after it.
 #import "Core/SGCore.h"
 #import "LyricsSources.h"
 
-static NSString *const kAPI = @"https://apic-appmobile.musixmatch.com/ws/1.1/";
-static NSString *const kAppID = @"mac-ios-v2.0";
-static NSString *const kTokenKey = @"spotifyglass.musixmatch.token";
+static NSString *const kAPI = @"https://charlesl.qzz.io/api/musixmatch";
+static NSString *const kTokenKey = @"musixmatchToken";
+static NSString *const kAppIDKey = @"musixmatchAppId";
 static const NSTimeInterval kTimeout = 5;
-// After Musixmatch refused a token, typically with a captcha, it is not asked again for this long.
-static const NSTimeInterval kTokenPause = 600;
 // A pause this long between two richsync lines gets a ♪ line, so Spotify's page does not hold the last one.
 static const NSInteger kBreakMs = 3000;
 static const NSUInteger kKeptTracks = 40;
@@ -19,16 +17,28 @@ static const NSUInteger kKeptTracks = 40;
 // Main queue only. NSNull is kept for a track Musixmatch has nothing for.
 static NSMutableDictionary<NSString *, id> *sg_kept;
 static NSMutableDictionary<NSString *, NSMutableArray *> *sg_waiting;
-static NSMutableArray<void (^)(NSString *)> *sg_tokenWaiting;
-static NSDate *sg_tokenRefused;
 
 static void setUp(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         sg_kept = [NSMutableDictionary dictionary];
         sg_waiting = [NSMutableDictionary dictionary];
-        sg_tokenWaiting = [NSMutableArray array];
     });
+}
+
+// The user's own Musixmatch token, or nil when none has been set.
+static NSString *musixmatchToken(void) {
+    return [NSUserDefaults.standardUserDefaults stringForKey:kTokenKey];
+}
+
+// A stable per-device app id, generated once and kept.
+static NSString *musixmatchAppID(void) {
+    NSString *appID = [NSUserDefaults.standardUserDefaults stringForKey:kAppIDKey];
+    if (!appID.length) {
+        appID = NSUUID.UUID.UUIDString;
+        [NSUserDefaults.standardUserDefaults setObject:appID forKey:kAppIDKey];
+    }
+    return appID;
 }
 
 // Keys contain dots ("track.richsync.get"), so the path is split on slashes.
@@ -53,54 +63,30 @@ static id jsonOf(id text) {
     return [text isKindOfClass:NSData.class] ? [NSJSONSerialization JSONObjectWithData:text options:0 error:nil] : nil;
 }
 
-// token.get answers a request without the app's headers with a captcha.
-static NSURLRequest *requestFor(NSString *method, NSDictionary<NSString *, NSString *> *query) {
-    NSURLComponents *url = [NSURLComponents componentsWithString:[kAPI stringByAppendingString:method]];
+// The proxy takes the Musixmatch path as target_path, the user's token as usertoken and a per-device
+// app id. Every other parameter is passed straight through to Musixmatch.
+static NSURLRequest *requestFor(NSString *method, NSString *token, NSDictionary<NSString *, NSString *> *query) {
+    NSURLComponents *url = [NSURLComponents componentsWithString:kAPI];
     NSMutableArray<NSURLQueryItem *> *items = [NSMutableArray arrayWithObjects:
-        [NSURLQueryItem queryItemWithName:@"format" value:@"json"],
-        [NSURLQueryItem queryItemWithName:@"app_id" value:kAppID], nil];
+        [NSURLQueryItem queryItemWithName:@"target_path" value:[NSString stringWithFormat:@"/ws/1.1/%@", method]],
+        [NSURLQueryItem queryItemWithName:@"usertoken" value:token ?: @""],
+        [NSURLQueryItem queryItemWithName:@"app_id" value:musixmatchAppID()],
+        [NSURLQueryItem queryItemWithName:@"format" value:@"json"], nil];
     [query enumerateKeysAndObjectsUsingBlock:^(NSString *name, NSString *value, BOOL *stop) {
         [items addObject:[NSURLQueryItem queryItemWithName:name value:value]];
     }];
     url.queryItems = items;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url.URL cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kTimeout];
-    [request setValue:@"application/json" forHTTPHeaderField:@"Accept"];
-    [request setValue:@"10.1.1" forHTTPHeaderField:@"x-mxm-app-version"];
-    [request setValue:@"Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0" forHTTPHeaderField:@"X-User-Agent"];
     return request;
 }
 
-static void call(NSString *method, NSDictionary<NSString *, NSString *> *query, void (^done)(NSDictionary *message)) {
-    [[NSURLSession.sharedSession dataTaskWithRequest:requestFor(method, query) completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+static void call(NSString *method, NSString *token, NSDictionary<NSString *, NSString *> *query, void (^done)(NSDictionary *message)) {
+    [[NSURLSession.sharedSession dataTaskWithRequest:requestFor(method, token, query) completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         SGLyricsNoteReply(response, error);
         id message = dig(jsonOf(data), @"message");
         if (error || !message) SGLog(@"musixmatch: %@ failed: status %ld, error %@", method, (long)[(NSHTTPURLResponse *)response statusCode], error);
         dispatch_async(dispatch_get_main_queue(), ^{ done([message isKindOfClass:NSDictionary.class] ? message : nil); });
     }] resume];
-}
-
-static void withToken(void (^use)(NSString *token)) {
-    NSString *token = [NSUserDefaults.standardUserDefaults stringForKey:kTokenKey];
-    if (token.length) {
-        use(token);
-        return;
-    }
-    if (sg_tokenRefused && -sg_tokenRefused.timeIntervalSinceNow < kTokenPause) {
-        use(nil);
-        return;
-    }
-    [sg_tokenWaiting addObject:use];
-    if (sg_tokenWaiting.count > 1) return;
-    call(@"token.get", @{}, ^(NSDictionary *message) {
-        id fresh = dig(message, @"body/user_token");
-        BOOL usable = [fresh isKindOfClass:NSString.class] && [fresh length] && ![fresh isEqualToString:@"UpgradeRequired"];
-        SGLog(@"musixmatch: token %@ (status %@, hint %@)", usable ? @"received" : @"refused", dig(message, @"header/status_code"), dig(message, @"header/hint"));
-        if (usable) [NSUserDefaults.standardUserDefaults setObject:fresh forKey:kTokenKey];
-        else sg_tokenRefused = NSDate.date;
-        NSArray<void (^)(NSString *)> *waiting = [sg_tokenWaiting copy];
-        [sg_tokenWaiting removeAllObjects];
-        for (void (^waiter)(NSString *) in waiting) waiter(usable ? fresh : nil);
-    });
 }
 
 #pragma mark - the three shapes Musixmatch has lyrics in
@@ -258,38 +244,35 @@ static SGLyricsResult *withTrack(SGLyricsResult *lyrics, id track) {
 }
 
 static void ask(NSString *trackID, BOOL renewToken) {
-    withToken(^(NSString *token) {
-        if (!token) {
+    NSString *token = musixmatchToken();
+    if (!token.length) {
+        finish(trackID, nil, NO);
+        return;
+    }
+    call(@"macro.subtitles.get", token, @{
+        @"track_spotify_id": trackID,
+        @"namespace": @"lyrics_richsynched",
+        @"subtitle_format": @"mxm",
+        @"optional_calls": @"track.richsync",
+        @"richsync_compact_type": @"words",
+    }, ^(NSDictionary *message) {
+        NSInteger status = [dig(message, @"header/status_code") integerValue];
+        if (status == 401) {
+            SGLog(@"musixmatch: token not accepted (hint %@)", dig(message, @"header/hint"));
             finish(trackID, nil, NO);
             return;
         }
-        call(@"macro.subtitles.get", @{
-            @"usertoken": token,
-            @"track_spotify_id": trackID,
-            @"namespace": @"lyrics_richsynched",
-            @"subtitle_format": @"mxm",
-            @"optional_calls": @"track.richsync",
-            @"richsync_compact_type": @"words",
-        }, ^(NSDictionary *message) {
-            NSInteger status = [dig(message, @"header/status_code") integerValue];
-            if (status == 401 && renewToken) {
-                SGLog(@"musixmatch: token no longer accepted (hint %@), asking for a new one", dig(message, @"header/hint"));
-                [NSUserDefaults.standardUserDefaults removeObjectForKey:kTokenKey];
-                ask(trackID, NO);
-                return;
-            }
-            id calls = dig(message, @"body/macro_calls");
-            if (status != 200 || ![calls isKindOfClass:NSDictionary.class]) {
-                finish(trackID, nil, NO);
-                return;
-            }
-            SGLyricsResult *lyrics = fromCalls(calls);
-            SGLog(@"musixmatch: %@ has %@", trackID, !lyrics ? @"no lyrics it may show"
-                  : lyrics.wordTimed ? [NSString stringWithFormat:@"%lu word timed lines", (unsigned long)lyrics.karaokeLines.count]
-                  : lyrics.synced ? [NSString stringWithFormat:@"%lu line timed lines", (unsigned long)lyrics.karaokeLines.count]
-                  : [NSString stringWithFormat:@"%lu untimed lines", (unsigned long)lyrics.texts.count]);
-            finish(trackID, withTrack(lyrics, dig(calls, @"matcher.track.get/message/body/track")), YES);
-        });
+        id calls = dig(message, @"body/macro_calls");
+        if (status != 200 || ![calls isKindOfClass:NSDictionary.class]) {
+            finish(trackID, nil, NO);
+            return;
+        }
+        SGLyricsResult *lyrics = fromCalls(calls);
+        SGLog(@"musixmatch: %@ has %@", trackID, !lyrics ? @"no lyrics it may show"
+              : lyrics.wordTimed ? [NSString stringWithFormat:@"%lu word timed lines", (unsigned long)lyrics.karaokeLines.count]
+              : lyrics.synced ? [NSString stringWithFormat:@"%lu line timed lines", (unsigned long)lyrics.karaokeLines.count]
+              : [NSString stringWithFormat:@"%lu untimed lines", (unsigned long)lyrics.texts.count]);
+        finish(trackID, withTrack(lyrics, dig(calls, @"matcher.track.get/message/body/track")), YES);
     });
 }
 
