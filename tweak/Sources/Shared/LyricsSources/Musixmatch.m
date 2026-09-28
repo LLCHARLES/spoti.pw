@@ -246,6 +246,26 @@ static SGLyricsResult *withTrack(SGLyricsResult *lyrics, id track) {
     return result;
 }
 
+// crowd.track.translations.get returns one entry per original line, matched by its text.
+static void applyCrowdTranslation(SGLyricsResult *lyrics, id list) {
+    if (!lyrics.karaokeLines.count || ![list isKindOfClass:NSArray.class]) return;
+    NSMutableDictionary<NSString *, NSString *> *byText = [NSMutableDictionary dictionary];
+    for (NSDictionary *entry in list) {
+        if (![entry isKindOfClass:NSDictionary.class]) continue;
+        id trans = entry[@"translation"];
+        if (![trans isKindOfClass:NSDictionary.class]) continue;
+        id original = trans[@"matched_line"], translated = trans[@"description"];
+        if ([original isKindOfClass:NSString.class] && [translated isKindOfClass:NSString.class] && [translated length])
+            byText[original] = translated;
+    }
+    if (!byText.count) return;
+    for (SGKaraokeLine *line in lyrics.karaokeLines) {
+        NSString *text = SGKaraokeLineText(line);
+        NSString *translation = byText[text];
+        if (translation.length && ![translation isEqualToString:text]) line.translation = translation;
+    }
+}
+
 static void ask(NSString *trackID, BOOL renewToken) {
     NSString *token = musixmatchToken();
     if (!token.length) {
@@ -271,11 +291,25 @@ static void ask(NSString *trackID, BOOL renewToken) {
             return;
         }
         SGLyricsResult *lyrics = fromCalls(calls);
+        id track = dig(calls, @"matcher.track.get/message/body/track");
         SGLog(@"musixmatch: %@ has %@", trackID, !lyrics ? @"no lyrics it may show"
               : lyrics.wordTimed ? [NSString stringWithFormat:@"%lu word timed lines", (unsigned long)lyrics.karaokeLines.count]
               : lyrics.synced ? [NSString stringWithFormat:@"%lu line timed lines", (unsigned long)lyrics.karaokeLines.count]
               : [NSString stringWithFormat:@"%lu untimed lines", (unsigned long)lyrics.texts.count]);
-        finish(trackID, withTrack(lyrics, dig(calls, @"matcher.track.get/message/body/track")), YES);
+        // Translations come from crowd.track.translations.get; subtitle_translated is restricted.
+        NSString *lang = SGLyricsTranslationLanguage();
+        if (lyrics && lang.length) {
+            call(@"crowd.track.translations.get", token, @{
+                @"track_spotify_id": trackID,
+                @"selected_language": lang,
+            }, ^(NSDictionary *tMessage) {
+                NSInteger tStatus = [dig(tMessage, @"header/status_code") integerValue];
+                if (tStatus == 200) applyCrowdTranslation(lyrics, dig(tMessage, @"body/translations_list"));
+                finish(trackID, withTrack(lyrics, track), YES);
+            });
+        } else {
+            finish(trackID, withTrack(lyrics, track), YES);
+        }
     });
 }
 
