@@ -231,9 +231,9 @@ static SGRLyricsLayout layoutIn(UIView *host) {
 }
 
 // The lines' part of the stage: the band between the title row and the progress bar while the
-// controls are there, all of it while they are away.
+// controls are there, from under the thumbnail and title to the bottom while they are away.
 static UIEdgeInsets bandOf(SGRLyricsLayout l, BOOL alone) {
-    if (alone) return UIEdgeInsetsZero;
+    if (alone) return UIEdgeInsetsMake(MAX(0, CGRectGetMaxY(l.thumb) + kLyricsTop - CGRectGetMinY(l.room)), 0, 0, 0);
     return UIEdgeInsetsMake(CGRectGetMinY(l.stage) - CGRectGetMinY(l.room), 0, CGRectGetMaxY(l.room) - CGRectGetMaxY(l.stage), 0);
 }
 
@@ -303,14 +303,18 @@ static void placeTitleRow(SGRLyricsLayout l) {
 
 #pragma mark - the lines alone
 
-// Everything the lines leave the player to: the header row, the bottom stack with the title row lifted
-// out of it, and the thumbnail. Alpha on the header unit's view and the stack, never hidden: views
-// inside Spotify's stacks crash when hidden, and at alpha 0 UIKit hands them no touches either.
+// The header row and the bottom stack's controls fade out when the lines go alone, but the thumbnail
+// and the title row stay: the cover and the title are kept, the way the Music app keeps them.
+// Alpha on the header unit's view and the stack's arranged views (except the title's), never hidden:
+// views inside Spotify's stacks crash when hidden, and at alpha 0 UIKit hands them no touches either.
 static void showControls(CGFloat alpha, SGRPlayerLyricsOverlay *overlay) {
     sg_header.viewIfLoaded.alpha = alpha;
-    UIView *stack = sg_info.viewIfLoaded.superview;
-    if ([stack isKindOfClass:UIStackView.class]) stack.alpha = alpha;
-    overlay.thumb.alpha = alpha;
+    UIView *info = sg_info.viewIfLoaded;
+    UIView *stack = info.superview;
+    if ([stack isKindOfClass:UIStackView.class]) {
+        for (UIView *v in ((UIStackView *)stack).arrangedSubviews)
+            if (v != info) v.alpha = alpha;
+    }
 }
 
 static void stopAloneTimer(void) {
