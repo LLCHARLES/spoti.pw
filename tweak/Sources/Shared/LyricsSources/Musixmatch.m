@@ -77,6 +77,9 @@ static NSURLRequest *requestFor(NSString *method, NSString *token, NSDictionary<
     }];
     url.queryItems = items;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url.URL cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kTimeout];
+    // Musixmatch checks these; without them the token answers 401 "upgrade".
+    [request setValue:@"10.1.1" forHTTPHeaderField:@"x-mxm-app-version"];
+    [request setValue:@"Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0" forHTTPHeaderField:@"X-User-Agent"];
     return request;
 }
 
