@@ -8,6 +8,7 @@
 
 static NSString *const kAPI = @"https://charlesl.qzz.io/api/musixmatch";
 static NSString *const kTokenKey = @"musixmatchToken";
+static NSString *const kDefaultToken = @"260928d48dc84e520a01d836cf9e6283b0420bdf3aee4330ecb1b1";
 static NSString *const kAppIDKey = @"musixmatchAppId";
 static const NSTimeInterval kTimeout = 5;
 // A pause this long between two richsync lines gets a ♪ line, so Spotify's page does not hold the last one.
@@ -26,9 +27,10 @@ static void setUp(void) {
     });
 }
 
-// The user's own Musixmatch token, or nil when none has been set.
+// The user's own Musixmatch token, falling back to the built-in one when none is set.
 static NSString *musixmatchToken(void) {
-    return [NSUserDefaults.standardUserDefaults stringForKey:kTokenKey];
+    NSString *token = [NSUserDefaults.standardUserDefaults stringForKey:kTokenKey];
+    return token.length ? token : kDefaultToken;
 }
 
 // A stable per-device app id, generated once and kept.
