@@ -1676,6 +1676,7 @@ typedef struct {
 }
 
 - (void)setChromeHidden:(BOOL)hidden {
+    _chromeHidden = hidden;
     _extras.alpha = hidden ? 0 : 1;
     _credit.alpha = hidden ? 0 : 1;
 }
