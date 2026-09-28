@@ -1675,6 +1675,11 @@ typedef struct {
     }
 }
 
+- (void)setChromeHidden:(BOOL)hidden {
+    _extras.alpha = hidden ? 0 : 1;
+    _credit.alpha = hidden ? 0 : 1;
+}
+
 // The player's position run on by the frame times the display will show and eased toward each new
 // reading, so the sweep follows neither the callback's jitter nor the small jumps of the core's
 // corrections. A seek or a new track is too far off to ease and is taken at once.

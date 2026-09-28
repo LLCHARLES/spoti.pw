@@ -303,18 +303,20 @@ static void placeTitleRow(SGRLyricsLayout l) {
 
 #pragma mark - the lines alone
 
-// The header row and the bottom stack's controls fade out when the lines go alone, but the thumbnail
-// and the title row stay: the cover and the title are kept, the way the Music app keeps them.
-// Alpha on the header unit's view and the stack's arranged views (except the title's), never hidden:
-// views inside Spotify's stacks crash when hidden, and at alpha 0 UIKit hands them no touches either.
+// The header row (the two buttons and the name above the cover), the thumbnail and the title row stay
+// when the lines go alone; the playback controls, the translation button, the credit and the Sing
+// microphone fade out, so the words have the player to themselves below the cover.
+// Alpha, never hidden: views inside Spotify's stacks crash when hidden, and at alpha 0 UIKit hands
+// them no touches either.
 static void showControls(CGFloat alpha, SGRPlayerLyricsOverlay *overlay) {
-    sg_header.viewIfLoaded.alpha = alpha;
     UIView *info = sg_info.viewIfLoaded;
     UIView *stack = info.superview;
     if ([stack isKindOfClass:UIStackView.class]) {
         for (UIView *v in ((UIStackView *)stack).arrangedSubviews)
             if (v != info) v.alpha = alpha;
     }
+    overlay.lyrics.chromeHidden = alpha == 0;
+    sg_sing.alpha = alpha;
 }
 
 static void stopAloneTimer(void) {
@@ -613,12 +615,11 @@ static void replace(void) {
 }
 %end
 
-// The header row goes with the rest of the controls while the lines are alone.
+// The header row (the two buttons and the name above the cover) stays while the lines are alone.
 %hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
 - (void)viewDidLayoutSubviews {
     %orig;
     sg_header = (UIViewController *)self;
-    if (sg_alone) sg_header.viewIfLoaded.alpha = 0;
 }
 %end
 

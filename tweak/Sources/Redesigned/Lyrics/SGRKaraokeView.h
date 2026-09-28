@@ -21,4 +21,7 @@
 // Asked as a tap lands on the lines, before it seeks or opens what a line means; NO leaves the tap to
 // whoever else watches the touch. Nil takes every tap.
 @property (nonatomic, copy) BOOL (^takesTap)(void);
+// The translation button and the credit at the foot of the lines, faded out when the player goes alone
+// so only the words remain. The lines' band is still laid out for them, so nothing shifts.
+@property (nonatomic) BOOL chromeHidden;
 @end
