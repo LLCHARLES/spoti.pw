@@ -9,7 +9,7 @@
 static NSString *const kAPI = @"https://charlesl.qzz.io/api/musixmatch";
 static NSString *const kTokenKey = @"musixmatchToken";
 static NSString *const kDefaultToken = @"260928d48dc84e520a01d836cf9e6283b0420bdf3aee4330ecb1b1";
-static NSString *const kAppIDKey = @"musixmatchAppId";
+static NSString *const kAppID = @"mac-ios-v2.0";
 static const NSTimeInterval kTimeout = 5;
 // A pause this long between two richsync lines gets a ♪ line, so Spotify's page does not hold the last one.
 static const NSInteger kBreakMs = 3000;
@@ -33,14 +33,9 @@ static NSString *musixmatchToken(void) {
     return token.length ? token : kDefaultToken;
 }
 
-// A stable per-device app id, generated once and kept.
+// Musixmatch identifies clients by app id; mac-ios-v2.0 is the one it accepts.
 static NSString *musixmatchAppID(void) {
-    NSString *appID = [NSUserDefaults.standardUserDefaults stringForKey:kAppIDKey];
-    if (!appID.length) {
-        appID = NSUUID.UUID.UUIDString;
-        [NSUserDefaults.standardUserDefaults setObject:appID forKey:kAppIDKey];
-    }
-    return appID;
+    return kAppID;
 }
 
 // Keys contain dots ("track.richsync.get"), so the path is split on slashes.
