@@ -40,13 +40,18 @@ static UIViewController *modSettingsPage(void) {
     // Opening the page is the only thing that asks; the cache keeps it to once every six hours.
     SGCheckForUpdate(NO);
     NSMutableArray<SGModSection *> *sections = [NSMutableArray array];
-    // A build the lock screen cannot open leads the page, above the tweaks: it is the one thing here
-    // that no switch can put right, and it is worth reading before anything else.
+    // What no switch can put right leads the page, above the tweaks: a Spotify or a second mod it isn't
+    // made for, a build the lock screen cannot open.
+    NSMutableArray<SGModRow *> *warnings = [NSMutableArray arrayWithArray:SGCompatibilityWarningRows()];
     SGModRow *signing = SGSigningWarningRow();
-    if (signing) [sections addObject:SGSection(nil, @[signing])];
+    if (signing) [warnings addObject:signing];
+    if (warnings.count) [sections addObject:SGSection(nil, warnings)];
     SGModRow *discord = SGWithSymbol(SGLinkRow(@"Join the Discord", @"Release pings, help and previews", SGDiscordURL), @"bubble.left.and.bubble.right.fill");
     discord.color = SGDiscordColor();
-    [sections addObject:SGSection(nil, @[SGDonateRow(), discord])];
+    NSMutableArray<SGModRow *> *support = [NSMutableArray arrayWithObjects:SGDonateRow(), discord, nil];
+    SGModRow *certificate = SGCertificateRow();
+    if (certificate) [support addObject:certificate];
+    [sections addObject:SGSection(nil, support)];
     SGModRow *mod = pageRow(@"Mod", @"info.circle", ^UIViewController *{ return SGAboutPage(); });
     mod.value = ^NSString *{ return @(SG_VERSION); };
     // The audio effects work on the sound, so both looks have them, with what they are doing beside the chevron.
@@ -275,7 +280,9 @@ static SGModSettingsRow *ensureDrawerRow(UICollectionView *list) {
     %init;
     SGRequireClasses(@[@"_TtC21Settings_PlatformImpl26SettingsListViewController", @"_TtC23SideDrawer_ListPageImpl18ListViewController"]);
     SGRegisterPages();
+    SGCheckCompatibilityOnce();
     SGCheckSigningOnce();
     SGWatchForUpdates();
     SGWatchForDonate();
+    SGWatchForCertificate();
 }

@@ -45,12 +45,12 @@ screens works under both. So the sources are four layers, each a directory of fe
     Redesigned/   the redesign; every %ctor starts with `if (!SGRedesignedUI()) return;`
     App/          Mod Settings' root and the pages that combine the layers, the Mod page, the tour
 
-`SGRedesignAvailable()` (Core/SGUIMode.h) holds the redesign to iOS 26 and up: it is Liquid Glass, and
+`SGRedesignTested()` (Core/SGUIMode.h) is YES from iOS 26: the redesign is Liquid Glass, and
 `UIGlassEffect` is the system's, so on an older OS the glass calls fall back to a blur and the redesign
-runs untested against an older UIKit (issue #37, an iOS 17 scene-update watchdog). Below 26 both
-`SGRedesignedUI()` and `SGRedesignedUIStored()` answer NO whatever is stored, so no Redesigned/ %ctor
-runs, App/Pages.m draws the switch as a "Needs iOS 26" row and the tour greys its card out. The stored
-key is left alone, so a phone that updates gets its redesign back.
+runs untested against an older UIKit (issue #37, an iOS 17 scene-update watchdog). Below 26 it can still
+be picked: App/Pages.m's restart alert and the tour's note under the cards say it is untested first, and
+`SGSetRedesignedUI()` stores `SGKeyRedesignUntested` along with the switch. Without that key the redesign
+does not run below 26, and `SGRedesignedUI()` turns off a switch stored before the warning existed.
 
 The two looks never run together, so each hooks the same Spotify class in its own way, and a part of
 the look is edited on its own side without touching the other: where both need the same thing, each
@@ -83,7 +83,10 @@ Shared:
                   best answer (LyricsSources.m, the list to drag in LyricsSourcesPage.m): Apple Music's TTML from
                   BiniLyrics.m and Unison.m, read by SGTTML.m, which carries a second voice and the
                   backing vocals, and in its head Apple's translation and its pronunciation of a line, the pronunciation
-                  timed word by word (the translation taken in the Lyrics page's language); Musixmatch.m, matched by
+                  timed word by word (the translation taken in the Lyrics page's language); SpicyLyrics.m, the Spicy
+                  Lyrics developer platform's GET /v1/lyrics/{id}, matched by Spotify's track id and asked with a
+                  publishable key of the user's own (see Spicy Lyrics below), carrying syllables, backing vocals, a
+                  duet's sides and the credit its terms require; Musixmatch.m, matched by
                   Spotify's track id with an anonymous token, word timed where it has richsync; NetEase.m, word timing from yrc for what the others only line time; LrcLib.m, open and
                   keyless and timed by the line, the floor under the rest. color-lyrics is answered with whichever won
                   (LyricsHook.x): Spotify's own 200 gets our lines swapped in; a track Spotify's metadata says has none has
@@ -93,7 +96,9 @@ Shared:
                   Spotify has lyrics for, so one is added to any list without it: that is what makes the player ask for the
                   lyrics and show the card. has_lyrics is forced on for every track, the walk starts at the track change
                   for it and the next, and the player's card-loading timeout flag is forced to its 5 s maximum while a
-                  source is on
+                  source is on. None of it runs while EeveeSpotify is injected with its own lyrics on (SGLyricsActive()):
+                  its hook on the same delegate calls blocks on a lyrics fetch, and LyricsHook calls it from the main
+                  queue. The Lyrics page says so
     LockScreenLyrics/ the line being sung in the system's now playing
     LockScreenArtwork/ the track's Canvas or its album's Apple Music cover as the lock screen's animated
                   artwork, from iOS 26 (Apple takes an MPMediaItemAnimatedArtwork under one of
@@ -107,7 +112,9 @@ Shared:
                   editorialVideo extended, under the web player's token read from music.apple.com's script and
                   kept until it expires; the HLS stream near 1100 px wide, HEVC first, is byte ranges of one
                   MP4, which is fetched whole. The clip is downloaded into Caches, centre cropped once to the
-                  shape the key wants (Apple's 3:4 cover needs none) and kept under a 120 MB cap. Checked on
+                  shape the key wants (Apple's 3:4 cover needs none) and kept under a 120 MB cap. The
+                  redesigned player's Animated artwork asks the same sources (SGArtworkAsk) in an order of its
+                  own; a search or a download both ask for at once is made once and answers both. Checked on
                   the Mac against harness/lockart/
     Navigation/   the page transition fix (PageTransition.x) and opening a spotify: link (Links.x)
     ConnectDiscovery/  Bonjour resolves local Spotify Connect receivers. When Spotify's own mDNS send
@@ -118,7 +125,9 @@ Shared:
                   IPA's existing types. This bridge handles Connect only; Cast is Bonjour-declared but
                   has no equivalent packet bridge here.
     Audio/        the mixer connection and RemoteIO render notify owned once (SGAudioPipeline.x): fixed processor slots
-                  run speed and pitch, audio effects, then music haptics. Graph changes and disposal exclude active pulls;
+                  run speed and pitch, audio effects, then music haptics. Spotify keeps an output chain per sample rate
+                  (a local file at another rate gets its own), so each RemoteIO pulls only its own mixer and the
+                  processors follow the one connected or started last. Graph changes and disposal exclude active pulls;
                   the render thread never waits for them. Unsupported formats retain Spotify's connection. The PCM
                   packet queue is bounded and generation-stamped. Sing's source read-ahead reads guarded queue metadata
                   for the verified Spotify binary; PCM still comes through its AudioUnit. Boundary tests are in harness/audio/ and harness/sing/
@@ -197,8 +206,10 @@ Redesigned:
                   Offline or Private Session under the bar), so the now playing bar and the pages move up with it. Laid out on
                   the Mac against harness/tabbar/
     NowPlayingBar/ the glass now playing bar (NowPlayingBar.x), with Spotify's device button on it hidden on request
-                  (BarConnect.x, its own key and its own Now playing page, apart from the native look's)
-    Player/       the redesigned full screen player (Player.h lists its files); its ⋯ opens a menu the way the
+                  (BarConnect.x, its own key and its own row on the Player page, apart from the native look's)
+    Player/       the redesigned full screen player (Player.h lists its files), on Spotify Free's units too (a Free
+                  account with pick and shuffle gets NowPlayingReinventFreeMode, whose units are classes of their own
+                  around the same elements, and each unit hook covers both); its ⋯ opens a menu the way the
                   Music app draws one (PlayerMenu.x, SGRPlayerMenu.m): a pane of glass grown out of the button,
                   Add to playlist, Add to Queue and Share as three tiles across its top, groups of rows under
                   them, Speed and pitch opening onto Shared/Player's sliders in place, everything else Spotify
@@ -243,17 +254,17 @@ Redesigned:
                   system's own glass
     Playlist/     the playlist page (Liked Songs and one's own too, all three being the same page) the way the Music
                   app lays one out: the cover full bleed across the top dissolving into the page's field with no seam,
-                  the title, the creator and the length centred under it, one row of glass controls (shuffle, a
-                  prominent Play capsule taking its glyph and its word from Spotify's own button, add), the find bar
-                  and the curation pills gone, and the track rows on the field with a hairline between them
+                  the title, the creator after their picture and the length centred under it, one row of glass
+                  controls (shuffle, a prominent Play capsule taking its glyph and its word from Spotify's own button,
+                  add), the find bar and the curation pills gone, and the track rows on the field with a hairline between them
                   (Playlist.h lists its files). Sort and Mix, the two of those pills the ⋯ menu does not already offer,
                   are put on that menu's own sheet instead, above Spotify's rows, and fire Spotify's own buttons.
                   Laid out on the Mac against harness/playlist/
     Album/        the album page laid out the same way, on the page the Creative Work Platform builds rather than the
                   playlist's, so it shares nothing with Playlist/ but the Kit: the cover full bleed dissolving into the
-                  field, the title, the artist and the kind and date centred under it, and the same row of glass
-                  controls -- play and shuffle float over the album page outside its header, so they are concealed
-                  there and the row carries the Kit's stand-ins, which draw their glyph and fire them. Under the tracks
+                  field, the title, the artist after their picture and the kind and date centred under it, and the
+                  same row of glass controls -- play and shuffle float over the album page outside its header, so they
+                  are concealed there and the row carries the Kit's stand-ins, which draw their glyph and fire them. Under the tracks
                   everything the server sends is dropped -- more by the artist, videos, concerts, merch, you might also
                   like, and whatever it adds next -- but the album's own line and its copyright (Album.h lists its
                   files). A podcast's episode page is the same template, so it is given the same field, and what it
@@ -266,8 +277,11 @@ App:
     About/         the update check against the repo's GitHub Releases, the Updates page it fills (the state, and
                    the changelog of every release newer than the build, a line per commit) and the sheet a newer
                    release brings up on its own a few seconds after Spotify opens, once per release; backup, the
-                   signing warning and the Mod page with the reset
+                   signing warning and the Mod page with the reset; how the app is signed (Certificate.m: free,
+                   paid, enterprise or no profile, sent with the usage ping), and for a free Apple ID a row with
+                   the day it runs out and, at most monthly, a certificate sheet worded by spoti.pw/api/certificate
     Onboarding/    the welcome page over Home on the first launch, with Redesigned UI, offered again from the Mod page
+    Sheet/         the card the Ko-fi ask and the certificate offer rise in, with its glowing button
 
 Every key a feature stores starts with `spotifyglass.`, whatever it holds: Reset all settings on
 the Mod page removes by that prefix and has no list to keep up to date. It leaves `SGKeyStock` behind,
@@ -277,6 +291,29 @@ A hook reads its switch when it runs (`SGEnabled`, `SGHidden`, `SGFlag` from Cor
 change shows after Spotify restarts; the tab editor on the Navbar page is the exception and applies as soon as the bar lays
 out again, as are the Home gradient's colour, strength and height, but not the switch that turns it on, and Vibrations
 and Live Activity. The root page in `App/ModSettings.x` holds the Appearance card and links the page of each part of Spotify, and only the stored look's.
+
+## Spicy Lyrics
+
+Spicy Lyrics answers only a key, and its terms want every deployer to have their own, so each user
+makes one (16 or older, free):
+
+1. Sign up at developers.spicylyrics.org (email, password, the emailed code).
+2. Dashboard, Applications: create an application. Ignore its secret key (`sl_sk_`), which must stay on
+   a server.
+3. Turn on client access for it and add **No origin header** to the allowed origins (it asks for a
+   confirmation). Copy the publishable key, `sl_pk_…`.
+4. Mod Settings, Lyrics, Sources: Spicy Lyrics key, paste, Save; tap Spicy Lyrics to put it in the order.
+
+The key is stored under `spotipw.spicylyrics.key`, outside the `spotifyglass.` prefix, so no settings
+backup, diagnostics dump or reset carries it; only an `sl_pk_` key is taken. A 401 or 403 is shown on
+the Sources page ("Key rejected: …", from the error code) and the key is not asked with again for ten
+minutes or until it changes; a 429 or 503 is waited out for its Retry-After (or RateLimit-Reset), and
+the last request of a window waits out the rest of it. Answers are kept in memory per track only (the
+terms allow 30 days). The credit is required: "Apple Music via Spicy Lyrics", "Spotify via Spicy
+Lyrics", or for a community sync "Spicy Lyrics, uploaded by …, made by …" with both linked. The
+redesign's lyrics show it whatever Show source says, a tap opening the links; the native look puts it
+in Spotify's own "Lyrics provided by" line under the lyrics (LyricsHook.x), which
+Native/Lyrics/LyricsCredit.x makes tappable. Tested on the Mac against harness/spicylyrics/.
 
 ## Make targets
 
@@ -311,7 +348,14 @@ Player: Gestures, Blocked artists (with the count on the row) and Lock screen wi
 in the native look also Now playing bar (its device button and its flags), Queue & devices, and
 Spotify's own player screen (artwork background, glass header buttons, Disable Canvas and the sheet,
 header, slider and sticky header flags, the cards under the player and the lyrics preview and player
-buttons to hide); in the redesign instead Now playing (its device button and the moving background). Then Vibrations under either look, a card for
+buttons to hide); in the redesign instead, right on the Player page, its device button and the Background behind the player: Fluid
+artwork, the default, the cover itself Kawase blurred and warped on Metal, ported from kawarp (Redesigned/Kit/SGRWarp.m), or Animated
+artwork, the track's Canvas or the album's Apple Music 3:4 cover looping muted over it (Redesigned/Player/PlayerAnimated.x), the square cover fading out as it fades in and back as it goes, found
+the lock screen's way in an order of its own (a Sources page) and falling back to Fluid artwork for a track
+without a clip, while one is fetched, while Spotify shows its own music video, and in Low Power Mode or with Reduce Motion on; the
+choice is picked in place, applies at once and brings its own settings up under it: for Fluid artwork a live preview over Speed,
+Warp, Blur, Saturation and Brightness, which the player follows as they move, and Reset; for Animated artwork its Sources; laid out against harness/kawarp/, the player's side against harness/player/ (its fluid and
+animated scenarios). Then Vibrations under either look, a card for
 Controls (on until switched off) and one for Music Haptics (off until switched on, with an ⓘ saying it
 follows the sound this iPhone plays while Spotify is open), each opening out while its switch is on:
 Controls into its Strength (10 to 100%, a tap at the new strength with each step), Music Haptics into its
@@ -343,11 +387,13 @@ forced and take no touch. `Redesigned/Kit/SGRGlassDesign.x` holds the list; what
 registers in `Core/SGFlagForce.h`. A change shows after Spotify restarts.
 
 The tab editor on the Navbar page is the exception and applies as soon as the bar lays out again. It lists the tabs in the order
-the bar shows them: drag to reorder, tap to hide or show, and Add a tab puts a page of Spotify's or
-any `spotify:` link on the bar with one of Encore's own glyphs. Spotify's own tabs are kept by the
+the bar shows them: drag to reorder, tap to hide or show, and Add a tab opens a sheet that puts a page
+of Spotify's or any `spotify:` link on the bar under a name of your own, with one of Encore's own glyphs
+or an SF Symbol (the names come from `Core/SGSFSymbolCatalog.m`, MIT, on the Licenses page). Spotify's own tabs are kept by the
 name under their icon, so they can be hidden but never removed, and switching the app's language
-starts the order over. A tab of the mod's own opens its link through Spotify's link dispatcher, so it
-never lights up as the tab you are on. Hide labels, on the same page, leaves the glass bar with its
+starts the order over. A tab of the mod's own opens its link through Spotify's link dispatcher, onto
+the stack of the tab you are on. The redesign's glass bar lights it while that page is on the stack and
+a second tap goes back to it; the native bar leaves the tab you were on lit. Hide labels, on the same page, leaves the glass bar with its
 icons alone and applies straight away too.
 
 ## Adding a feature

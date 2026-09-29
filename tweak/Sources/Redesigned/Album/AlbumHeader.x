@@ -432,8 +432,9 @@ static SGRHeaderInfo *applyInfo(UIView *header, UIView *page) {
 
     // The artist under the title, opened from the line that names them. ParentRow is one control for the
     // whole line however many artists are on the album, so several of them open Spotify's own picker
-    // (issue #56).
+    // (issue #56). Its facepile's pictures go before the name (issue #149).
     [info showCreatorLink:parent];
+    [info showFacesIn:parent];
 
     // More, pinned over the page rather than left in the header, which is blanked and scrolls away.
     SGRPinnedMore(page, &kPinnedMoreKey, SGRFindByIdentifier(header, @"Components.UI.ContextMenuButton*", &kMoreKey));

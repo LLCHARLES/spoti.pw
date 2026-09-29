@@ -2,7 +2,9 @@
 // is one screen and does not scroll (PlayerScroll.x), so the footer's lyrics glyph is the only way to
 // them: it shrinks the cover into a thumbnail at the top of the artwork band, lifts the track's title
 // up beside it, and fades the Apple Music style lines (Redesigned/Lyrics/SGRKaraokeView.h) into the
-// room that frees between the title and the progress bar. Tapping it again puts the cover back.
+// room that frees between the title and the progress bar. Tapping it again, or the thumbnail, puts the
+// cover back. Over a clip (PlayerAnimated.x), where the player shows no cover, the thumbnail comes up and
+// goes where it sits instead.
 //
 // Nothing of Spotify's is taken apart for it. The cover is the Kit's now playing artwork drawn again
 // in a view of the redesign's own, flown from where Spotify's cover is drawn to where the thumbnail
@@ -71,6 +73,10 @@ static const CGFloat kLivingHeight = 200;
 // nothing the eye waits for, and come back quickly, since a touch asked for them.
 static const NSTimeInterval kAloneAfter = 4;
 static const NSTimeInterval kAloneOut = 0.6, kAloneBack = 0.3;
+// Lighter than the Kit's glyph buttons: a picture dimmed to half reads as gone, not pressed.
+static const CGFloat kThumbPressScale = 0.94, kThumbPressAlpha = 0.8;
+// Over a clip the thumbnail grows in from this in its place, and shrinks back to it going.
+static const CGFloat kThumbAppearScale = 0.8;
 
 static char kOverlayKey, kPlateKey, kTitleKey, kWatcherKey;
 static BOOL sg_open;
@@ -87,10 +93,61 @@ static __weak UIView *sg_titleElement;      // the arranged element view holding
 
 #pragma mark - the overlay
 
+// The thumbnail puts the cover back when tapped, the way the Music app's small artwork does. Its own
+// transform is the flight, so the press goes on the face inside it.
+@interface SGRPlayerLyricsThumb : UIControl
+@property (nonatomic, readonly) UIView *face;        // the cover and its shadow
+@end
+
+@implementation SGRPlayerLyricsThumb {
+    UIView *_face;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if (!(self = [super initWithFrame:frame])) return nil;
+    _face = [[UIView alloc] initWithFrame:self.bounds];
+    _face.userInteractionEnabled = NO;
+    [self addSubview:_face];
+    self.isAccessibilityElement = YES;
+    self.accessibilityLabel = @"Hide lyrics";
+    self.accessibilityTraits = UIAccessibilityTraitButton;
+    [self addTarget:self action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+    return self;
+}
+
+- (UIView *)face { return _face; }
+
+- (void)tapped {
+    SGLog(@"redesign player: the thumbnail tapped, the cover goes back");
+    SGRPlayerToggleLyrics();
+}
+
+// VoiceOver's double tap, which reaches a UIControl of one's own no other way.
+- (BOOL)accessibilityActivate {
+    [self tapped];
+    return YES;
+}
+
+// Only while it sits there with the controls: in flight, or faded out with them, a touch is not for it.
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    return sg_open && !sg_alone && !sg_moving && [super pointInside:point withEvent:event];
+}
+
+- (void)setHighlighted:(BOOL)highlighted {
+    [super setHighlighted:highlighted];
+    UIView *face = _face;
+    SGRAnimate(SGRMotionPress, ^{
+        face.alpha = highlighted ? kThumbPressAlpha : 1;
+        face.transform = highlighted ? CGAffineTransformMakeScale(kThumbPressScale, kThumbPressScale) : CGAffineTransformIdentity;
+    }, nil);
+}
+
+@end
+
 // The thumbnail and the lines, side by side under one view so the lines' own view has no sibling of
 // ours to hide: SGRKaraokeView takes the whole of whatever it is put in and dims what is next to it.
 @interface SGRPlayerLyricsOverlay : UIView
-@property (nonatomic, readonly) UIView *thumb;       // the cover, at full size, moved by its transform
+@property (nonatomic, readonly) SGRPlayerLyricsThumb *thumb;   // the cover, at full size, moved by its transform
 @property (nonatomic, readonly) UIImageView *cover;
 @property (nonatomic, readonly) UIView *stage;       // holds the lines' view alone
 @property (nonatomic, readonly) UILabel *empty;      // Sing's "no lyrics"
@@ -98,7 +155,8 @@ static __weak UIView *sg_titleElement;      // the arranged element view holding
 @end
 
 @implementation SGRPlayerLyricsOverlay {
-    UIView *_thumb, *_stage;
+    SGRPlayerLyricsThumb *_thumb;
+    UIView *_stage;
     UIImageView *_cover;
     UILabel *_empty;
     SGRKaraokeView *_lyrics;
@@ -106,14 +164,13 @@ static __weak UIView *sg_titleElement;      // the arranged element view holding
 
 - (instancetype)initWithFrame:(CGRect)frame {
     if (!(self = [super initWithFrame:frame])) return nil;
-    _thumb = [[UIView alloc] initWithFrame:CGRectZero];
-    _thumb.userInteractionEnabled = NO;
+    _thumb = [[SGRPlayerLyricsThumb alloc] initWithFrame:CGRectZero];
     _cover = [[UIImageView alloc] initWithFrame:CGRectZero];
     _cover.contentMode = UIViewContentModeScaleAspectFill;
     _cover.clipsToBounds = YES;
     _cover.layer.cornerCurve = kCACornerCurveContinuous;
     _cover.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [_thumb addSubview:_cover];
+    [_thumb.face addSubview:_cover];
     _stage = [[UIView alloc] initWithFrame:CGRectZero];
     // What the lines leave when a song has none, which only Sing opens them for. A sibling of the lines'
     // view, so it goes whenever they have something to show (SGRKaraokeView's syncSiblings).
@@ -130,13 +187,13 @@ static __weak UIView *sg_titleElement;      // the arranged element view holding
     return self;
 }
 
-- (UIView *)thumb { return _thumb; }
+- (SGRPlayerLyricsThumb *)thumb { return _thumb; }
 - (UIImageView *)cover { return _cover; }
 - (UIView *)stage { return _stage; }
 - (UILabel *)empty { return _empty; }
 
-// The lines seek when they are tapped and the thumbnail takes no touches, so everywhere else the
-// overlay would only swallow them: a view that takes touches does, even with nothing on it.
+// The lines seek when they are tapped and the thumbnail puts the cover back, so everywhere else the
+// overlay would only swallow touches: a view that takes touches does, even with nothing on it.
 //
 // What it hands them to instead is the title row. Translated to the top of the player it is drawn well
 // outside the stack view it is arranged in, and UIKit stops looking at a view whose bounds the touch is
@@ -455,10 +512,14 @@ static void place(SGRPlayerLyricsOverlay *overlay, UIView *host, SGRLyricsLayout
     CGRect cover = [overlay convertRect:l.cover fromView:host], stage = [overlay convertRect:l.room fromView:host];
     overlay.thumb.bounds = (CGRect){CGPointZero, cover.size};
     overlay.thumb.center = CGPointMake(CGRectGetMidX(cover), CGRectGetMidY(cover));
-    overlay.cover.frame = overlay.thumb.bounds;
-    SGRShadowPlate *plate = SGRShadowPlateIn(overlay.thumb, &kPlateKey);
-    plate.bounds = overlay.thumb.bounds;
-    plate.center = CGPointMake(CGRectGetMidX(overlay.thumb.bounds), CGRectGetMidY(overlay.thumb.bounds));
+    UIView *face = overlay.thumb.face;
+    CGPoint middle = CGPointMake(CGRectGetMidX(overlay.thumb.bounds), CGRectGetMidY(overlay.thumb.bounds));
+    face.bounds = overlay.thumb.bounds;
+    face.center = middle;
+    overlay.cover.frame = face.bounds;
+    SGRShadowPlate *plate = SGRShadowPlateIn(face, &kPlateKey);
+    plate.bounds = face.bounds;
+    plate.center = middle;
     overlay.stage.bounds = (CGRect){CGPointZero, stage.size};
     overlay.stage.center = CGPointMake(CGRectGetMidX(stage), CGRectGetMidY(stage));
     overlay.empty.frame = UIEdgeInsetsInsetRect(overlay.stage.bounds, bandOf(l, NO));
@@ -507,15 +568,20 @@ static void setOpen(BOOL open, BOOL animated) {
     }
     sg_open = open;
     SGRPlayerLyricsChanged();
+    SGRPlayerAnimatedFollowLyrics(open, animated);
 
     SGRPlayerLyricsOverlay *overlay = overlayIn(host);
     if (!open) SGRSingControlDismiss(overlay);
     place(overlay, host, l);
     CGAffineTransform away = thumbTransform(l);
+    BOOL inPlace = SGRPlayerAnimatedShowing(NULL, NULL);
+    CGAffineTransform small = CGAffineTransformConcat(CGAffineTransformMakeScale(kThumbAppearScale, kThumbAppearScale), away);
+    CGAffineTransform full = inPlace ? small : CGAffineTransformIdentity;
     // The state it starts from, so the animation has both ends of every value and nothing jumps into it.
-    overlay.thumb.transform = open ? CGAffineTransformIdentity : away;
-    overlay.cover.layer.cornerRadius = thumbRadius(l, !open);
+    overlay.thumb.transform = open ? full : away;
+    overlay.cover.layer.cornerRadius = thumbRadius(l, inPlace || !open);
     if (open) {
+        overlay.thumb.alpha = inPlace ? 0 : 1;
         overlay.cover.image = SGRNowPlayingArtwork(NULL, NULL);
         overlay.stage.alpha = 0;
         overlay.stage.transform = CGAffineTransformMakeScale(kLyricsEnterScale, kLyricsEnterScale);
@@ -529,8 +595,9 @@ static void setOpen(BOOL open, BOOL animated) {
     }
 
     void (^move)(void) = ^{
-        overlay.thumb.transform = open ? away : CGAffineTransformIdentity;
-        overlay.cover.layer.cornerRadius = thumbRadius(l, open);
+        overlay.thumb.transform = open ? away : full;
+        if (inPlace) overlay.thumb.alpha = open ? 1 : 0;
+        overlay.cover.layer.cornerRadius = thumbRadius(l, inPlace || open);
         placeTitleRow(l);
         sg_floating.viewIfLoaded.alpha = open ? 0 : 1;
     };
@@ -560,8 +627,8 @@ static void setOpen(BOOL open, BOOL animated) {
                          animations:show completion:nil];
     }
     if (open) scheduleAlone();
-    SGLog(@"redesign player: lyrics %@, thumbnail %.0fx%.0f at %.0f,%.0f, title row up %.0f and right %.0f, lines %.0fx%.0f",
-          open ? @"up" : @"away", l.thumb.size.width, l.thumb.size.height, l.thumb.origin.x, l.thumb.origin.y,
+    SGLog(@"redesign player: lyrics %@%@, thumbnail %.0fx%.0f at %.0f,%.0f, title row up %.0f and right %.0f, lines %.0fx%.0f",
+          open ? @"up" : @"away", inPlace ? @" in place over a clip" : @"", l.thumb.size.width, l.thumb.size.height, l.thumb.origin.x, l.thumb.origin.y,
           -l.lift, l.shift, l.stage.size.width, l.stage.size.height);
 }
 
@@ -616,17 +683,11 @@ static void replace(void) {
 %end
 
 // The header row (the two buttons and the name above the cover) stays while the lines are alone.
-%hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
-- (void)viewDidLayoutSubviews {
-    %orig;
-    sg_header = (UIViewController *)self;
+static void headerLaidOut(UIViewController *unit) {
+    sg_header = unit;
 }
-%end
 
-%hook _TtC20NowPlaying_ModesImpl23InformationElementsUnit
-- (void)viewDidLayoutSubviews {
-    %orig;
-    UIViewController *unit = (UIViewController *)self;
+static void infoLaidOut(UIViewController *unit) {
     sg_info = unit;
     UIView *host = unit.viewIfLoaded;
     // The title and the artist are two labels of one arranged element view, which is what moves.
@@ -642,13 +703,53 @@ static void replace(void) {
     }
     replace();
 }
+
+static void durationLaidOut(UIViewController *unit) {
+    sg_duration = unit;
+    replace();
+}
+
+%hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
+- (void)viewDidLayoutSubviews {
+    %orig;
+    headerLaidOut((UIViewController *)self);
+}
+%end
+
+%hook _TtC20NowPlaying_ModesImpl23InformationElementsUnit
+- (void)viewDidLayoutSubviews {
+    %orig;
+    infoLaidOut((UIViewController *)self);
+}
 %end
 
 %hook _TtC20NowPlaying_ModesImpl19DurationElementUnit
 - (void)viewDidLayoutSubviews {
     %orig;
-    sg_duration = (UIViewController *)self;
-    replace();
+    durationLaidOut((UIViewController *)self);
+}
+%end
+
+// Spotify Free's player builds the same elements into units of its own (Player.h); its floating unit
+// is the shared one below.
+%hook _TtC32ReinventFree_ReinventFreeNpvImpl43ReinventFreeNavigationBarUnitViewController
+- (void)viewDidLayoutSubviews {
+    %orig;
+    headerLaidOut((UIViewController *)self);
+}
+%end
+
+%hook _TtC32ReinventFree_ReinventFreeNpvImpl35ReinventFreeInformationElementsUnit
+- (void)viewDidLayoutSubviews {
+    %orig;
+    infoLaidOut((UIViewController *)self);
+}
+%end
+
+%hook _TtC32ReinventFree_ReinventFreeNpvImpl20DurationElementsUnit
+- (void)viewDidLayoutSubviews {
+    %orig;
+    durationLaidOut((UIViewController *)self);
 }
 %end
 
@@ -755,5 +856,8 @@ static SGRPlayerLyricsWatcher *sg_watcher;
         @"_TtC20NowPlaying_ModesImpl23InformationElementsUnit",
         @"_TtC20NowPlaying_ModesImpl19DurationElementUnit",
         @"_TtC20NowPlaying_ModesImpl20FloatingElementsUnit",
+        @"_TtC32ReinventFree_ReinventFreeNpvImpl43ReinventFreeNavigationBarUnitViewController",
+        @"_TtC32ReinventFree_ReinventFreeNpvImpl35ReinventFreeInformationElementsUnit",
+        @"_TtC32ReinventFree_ReinventFreeNpvImpl20DurationElementsUnit",
     ]);
 }

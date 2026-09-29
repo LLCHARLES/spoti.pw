@@ -92,7 +92,8 @@ static NSString *lineFor(NSDictionary *info, double elapsed) {
 
 static NSDictionary *withLine(NSDictionary *info, NSString *line, double elapsed) {
     NSMutableDictionary *shown = [info mutableCopy];
-    shown[MPMediaItemPropertyArtist] = line;
+    if (line) shown[MPMediaItemPropertyArtist] = line;
+    // iOS reads a resent elapsed time as the position now, so Spotify's older one would jump the bar back.
     shown[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(elapsed);
     return shown;
 }
@@ -111,7 +112,7 @@ static void tick(void) {
     if (line == sg_shownLine || [line isEqualToString:sg_shownLine]) return;
     sg_shownLine = line;
     sg_resending = YES;
-    MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = line ? withLine(info, line, elapsed) : info;
+    MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = withLine(info, line, elapsed);
     sg_resending = NO;
 }
 
@@ -159,7 +160,7 @@ static BOOL playingBy(NSDictionary *info) {
     double elapsed = elapsedAt(info, now, now);
     NSString *line = lineFor(info, elapsed);
     sg_shownLine = line;
-    %orig(line ? withLine(info, line, elapsed) : info);
+    %orig(withLine(info, line, elapsed));
 }
 
 - (NSDictionary *)nowPlayingInfo {

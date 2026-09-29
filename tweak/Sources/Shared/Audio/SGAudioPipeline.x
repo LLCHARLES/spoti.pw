@@ -11,10 +11,16 @@ static _Atomic(SGAudioPullProcessor) pullProcessor;
 static SGAudioSourceProcessor sourceProcessor; // protected by gate
 static void *sourceContext;
 static _Atomic(void *) attachedSourceContext;
-static _Atomic(AudioUnit) sourceUnit, outputUnit;
+static _Atomic(AudioUnit) sourceUnit, outputUnit; // outputUnit's route, published for readers outside the gate
 static atomic_uint sourceBus, maximumFrames = 1024;
-static Float64 sourceTime; // sole render consumer
-static UInt32 sourceChannels;
+// Every RemoteIO input taken over, with the unit Spotify connected to it. Spotify keeps an output chain
+// per sample rate, so two can be alive and running at once: each pulls only its own source.
+typedef struct {
+    AudioUnit output, source; // no source: Spotify's own connection was kept
+    UInt32 bus, channels, limit;
+    Float64 time; // that output's render thread only
+} Route;
+static Route routes[8], *active; // protected by gate; active is outputUnit's
 static struct { AudioUnit unit; AURenderCallbackStruct callback; } sourceCallbacks[8]; // protected by gate
 static OSStatus (*originalSet)(AudioUnit, AudioUnitPropertyID, AudioUnitScope, AudioUnitElement, const void *, UInt32);
 static OSStatus (*originalStart)(AudioUnit);
@@ -22,10 +28,10 @@ static OSStatus (*originalDispose)(AudioComponentInstance);
 static atomic_bool available;
 
 // Graph changes wait off the render thread. A render callback makes one attempt and never waits.
-// This protects the source/bus pair and prevents disposing a source during a pull. Setters can
-// invoke a property listener synchronously, hence the per-thread nesting count.
-enum { rendering = 1, changing = 2 };
-static atomic_uint gate;
+// This protects the routes and prevents disposing a source during a pull. Setters can invoke a
+// property listener synchronously, hence the per-thread nesting count. Outputs render at once.
+enum { changing = 1u << 31 };
+static atomic_uint gate; // changing, plus the renders inside
 static pthread_mutex_t controlLock = PTHREAD_MUTEX_INITIALIZER;
 static _Thread_local unsigned controlDepth;
 static _Thread_local bool pulling;
@@ -34,26 +40,49 @@ static void beginChange(void) {
     if (controlDepth++) return;
     pthread_mutex_lock(&controlLock);
     atomic_fetch_or(&gate, changing);
-    while (atomic_load(&gate) & rendering) usleep(250);
+    while (atomic_load(&gate) & ~changing) usleep(250);
 }
 static void endChange(void) {
     if (--controlDepth) return;
-    atomic_store(&gate, 0);
+    atomic_fetch_and(&gate, ~changing);
     pthread_mutex_unlock(&controlLock);
 }
 static bool enterRender(void) {
-    unsigned expected = 0;
-    if (!atomic_compare_exchange_strong(&gate, &expected, rendering)) return false;
+    unsigned value = atomic_load(&gate);
+    do if (value & changing) return false;
+    while (!atomic_compare_exchange_weak(&gate, &value, value + 1));
     inRender = true;
     return true;
 }
-static void leaveRender(void) { inRender = false; atomic_fetch_and(&gate, ~rendering); }
+static void leaveRender(void) { inRender = false; atomic_fetch_sub(&gate, 1); }
 static void replaceSourceProcessor(SGAudioSourceProcessor processor, void *context) {
     sourceProcessor = processor; sourceContext = context;
     atomic_store(&attachedSourceContext, processor ? context : NULL);
 }
 bool SGAudioPipelineSourceProcessorAttached(void *context) {
     return context && context == atomic_load(&attachedSourceContext);
+}
+static Route *routeFor(AudioUnit output) {
+    if (output) for (unsigned i = 0; i < 8; i++) if (routes[i].output == output) return &routes[i];
+    return NULL;
+}
+static void publish(void) {
+    atomic_store(&sourceBus, active ? active->bus : 0);
+    atomic_store(&maximumFrames, active && active->limit ? active->limit : 1024);
+    atomic_store(&sourceUnit, active ? active->source : NULL);
+}
+// The processors follow one output; the others play their own chain untouched.
+static void activate(AudioUnit output) {
+    replaceSourceProcessor(NULL, NULL);
+    atomic_store(&outputUnit, output);
+    active = routeFor(output);
+    publish();
+}
+static void forget(Route *route) {
+    if (!route) return;
+    if (route == active) { replaceSourceProcessor(NULL, NULL); active = NULL; }
+    memset(route, 0, sizeof *route);
+    publish();
 }
 
 bool SGAudioPipelineAvailable(void) { return atomic_load(&available); }
@@ -127,12 +156,12 @@ OSStatus SGAudioPipelinePull(UInt32 frames, AudioBufferList *data, const AudioTi
     if (sourceProcessor) return sourceProcessor(sourceContext, frames, data, outputTime);
     return SGAudioPipelinePullOriginal(frames, data, outputTime);
 }
-OSStatus SGAudioPipelinePullOriginal(UInt32 frames, AudioBufferList *data, const AudioTimeStamp *outputTime) {
-    AudioUnit source = atomic_load(&sourceUnit);
-    if (!pulling || !source || !data) return kAudioUnitErr_NoConnection;
+static OSStatus pull(Route *route, UInt32 frames, AudioBufferList *data, const AudioTimeStamp *outputTime) {
+    AudioUnit source = route ? route->source : NULL;
+    if (!source || !data) return kAudioUnitErr_NoConnection;
     if (!frames) return noErr;
-    if (data->mNumberBuffers != sourceChannels || frames > UINT32_MAX / sizeof(float)) return kAudio_ParamError;
-    UInt32 chunk = atomic_load_explicit(&maximumFrames, memory_order_relaxed);
+    if (data->mNumberBuffers != route->channels || frames > UINT32_MAX / sizeof(float)) return kAudio_ParamError;
+    UInt32 chunk = route->limit ? route->limit : 1024;
     for (UInt32 b = 0; b < data->mNumberBuffers; b++) {
         if (!data->mBuffers[b].mData || data->mBuffers[b].mNumberChannels != 1 ||
             data->mBuffers[b].mDataByteSize < frames * sizeof(float)) return kAudio_ParamError;
@@ -144,11 +173,11 @@ OSStatus SGAudioPipelinePullOriginal(UInt32 frames, AudioBufferList *data, const
         for (UInt32 b = 0; b < data->mNumberBuffers; b++)
             part.list.mBuffers[b] = (AudioBuffer){1, count * sizeof(float), (float *)data->mBuffers[b].mData + done};
         AudioTimeStamp time = outputTime ? *outputTime : (AudioTimeStamp){0};
-        time.mSampleTime = sourceTime;
+        time.mSampleTime = route->time;
         time.mFlags |= kAudioTimeStampSampleTimeValid;
         AudioUnitRenderActionFlags flags = 0;
-        OSStatus status = AudioUnitRender(source, &flags, &time, atomic_load(&sourceBus), count, &part.list);
-        sourceTime += count;
+        OSStatus status = AudioUnitRender(source, &flags, &time, route->bus, count, &part.list);
+        route->time += count;
         if (status != noErr) return status;
         if (flags & kAudioUnitRenderAction_OutputIsSilence)
             for (UInt32 b = 0; b < data->mNumberBuffers; b++) memset(part.list.mBuffers[b].mData, 0, count * sizeof(float));
@@ -156,22 +185,29 @@ OSStatus SGAudioPipelinePullOriginal(UInt32 frames, AudioBufferList *data, const
     }
     return noErr;
 }
+OSStatus SGAudioPipelinePullOriginal(UInt32 frames, AudioBufferList *data, const AudioTimeStamp *outputTime) {
+    return pulling ? pull(active, frames, data, outputTime) : kAudioUnitErr_NoConnection;
+}
 
 static OSStatus feed(void *context, AudioUnitRenderActionFlags *flags, const AudioTimeStamp *time,
                      UInt32 bus, UInt32 frames, AudioBufferList *data) {
     bool entered = enterRender();
-    if (!entered || (AudioUnit)context != atomic_load(&outputUnit) || !SGAudioPipelineTapped()) {
+    Route *route = entered ? routeFor((AudioUnit)context) : NULL;
+    if (!route || !route->source) {
         if (entered) leaveRender();
         if (data) for (UInt32 b = 0; b < data->mNumberBuffers; b++)
             if (data->mBuffers[b].mData) memset(data->mBuffers[b].mData, 0, data->mBuffers[b].mDataByteSize);
         if (flags) *flags |= kAudioUnitRenderAction_OutputIsSilence;
         return noErr;
     }
-    SGAudioPullProcessor processor = atomic_load(&pullProcessor);
     OSStatus status = noErr;
-    pulling = true;
-    if (!processor || !processor(frames, data, &status)) status = SGAudioPipelinePull(frames, data, time);
-    pulling = false;
+    if (route != active) status = pull(route, frames, data, time);
+    else {
+        SGAudioPullProcessor processor = atomic_load(&pullProcessor);
+        pulling = true;
+        if (!processor || !processor(frames, data, &status)) status = SGAudioPipelinePull(frames, data, time);
+        pulling = false;
+    }
     leaveRender();
     return status;
 }
@@ -194,14 +230,22 @@ static void prepare(AudioUnit unit) {
         if (processor && processor->prepare) processor->prepare(unit);
     }
 }
-static void refreshSource(AudioUnit unit) {
-    AudioUnit source = atomic_load(&sourceUnit);
-    if (!source) return;
-    UInt32 bus = atomic_load(&sourceBus), size = sizeof(AudioStreamBasicDescription);
+// Spotify's own connection back, for formats the pull does not take.
+static OSStatus restore(Route *route) {
+    AURenderCallbackStruct none = {0};
+    AudioUnitConnection original = {route->source, route->bus, 0};
+    route->source = NULL;
+    if (route == active) { replaceSourceProcessor(NULL, NULL); publish(); }
+    originalSet(route->output, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &none, sizeof none);
+    return originalSet(route->output, kAudioUnitProperty_MakeConnection, kAudioUnitScope_Input, 0, &original, sizeof original);
+}
+static void refreshSource(Route *route) {
+    if (!route || !route->source) return;
+    UInt32 size = sizeof(AudioStreamBasicDescription);
     AudioStreamBasicDescription input = {0}, output = {0};
-    OSStatus a = AudioUnitGetProperty(source, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, bus, &input, &size);
+    OSStatus a = AudioUnitGetProperty(route->source, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, route->bus, &input, &size);
     size = sizeof output;
-    OSStatus b = AudioUnitGetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &output, &size);
+    OSStatus b = AudioUnitGetProperty(route->output, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &output, &size);
     BOOL supported = a == noErr && b == noErr && input.mFormatID == kAudioFormatLinearPCM &&
         input.mFormatID == output.mFormatID && input.mSampleRate > 0 && input.mSampleRate == output.mSampleRate &&
         input.mFormatFlags == output.mFormatFlags && input.mBitsPerChannel == 32 && output.mBitsPerChannel == 32 &&
@@ -209,29 +253,27 @@ static void refreshSource(AudioUnit unit) {
         input.mChannelsPerFrame >= 1 && input.mChannelsPerFrame <= 2 && input.mChannelsPerFrame == output.mChannelsPerFrame &&
         input.mBytesPerFrame == sizeof(float) && output.mBytesPerFrame == sizeof(float);
     if (!supported) {
-        replaceSourceProcessor(NULL, NULL);
-        atomic_store(&sourceUnit, NULL);
-        AURenderCallbackStruct none = {0};
-        AudioUnitConnection original = {source, bus, 0};
-        originalSet(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &none, sizeof none);
-        originalSet(unit, kAudioUnitProperty_MakeConnection, kAudioUnitScope_Input, 0, &original, sizeof original);
+        restore(route);
         return;
     }
-    sourceChannels = input.mChannelsPerFrame;
-    if (input.mSampleRate != 44100 || input.mChannelsPerFrame != 2) replaceSourceProcessor(NULL, NULL);
+    route->channels = input.mChannelsPerFrame;
+    if (route == active && (input.mSampleRate != 44100 || input.mChannelsPerFrame != 2)) replaceSourceProcessor(NULL, NULL);
     UInt32 limit = 1024;
     size = sizeof limit;
-    if (AudioUnitGetProperty(source, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &limit, &size) != noErr || !limit)
+    if (AudioUnitGetProperty(route->source, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &limit, &size) != noErr || !limit)
         limit = 1024;
-    atomic_store(&maximumFrames, limit);
+    route->limit = limit;
+    if (route == active) publish();
 }
 static void formatChanged(void *context, AudioUnit unit, AudioUnitPropertyID property, AudioUnitScope scope, AudioUnitElement element) {
     if (inRender) return; // refresh again before the next output start; never wait on our own callback
     beginChange();
-    if (unit == atomic_load(&outputUnit) && property == kAudioUnitProperty_StreamFormat && element == 0) {
-        replaceSourceProcessor(NULL, NULL); // old generation cannot cross a route/format change
-        refreshSource(unit);
-        prepare(unit);
+    if (property == kAudioUnitProperty_StreamFormat && element == 0) {
+        if (unit == atomic_load(&outputUnit)) {
+            replaceSourceProcessor(NULL, NULL); // old generation cannot cross a route/format change
+            refreshSource(active);
+            prepare(unit);
+        } else refreshSource(routeFor(unit));
     }
     endChange();
 }
@@ -239,18 +281,14 @@ static OSStatus start(AudioUnit unit) {
     if (inRender) return kAudioUnitErr_CannotDoInCurrentContext;
     beginChange();
     if (remoteIO(unit)) {
-        // A new RemoteIO can be driven by Spotify's own callback without MakeConnection.
-        if (unit != atomic_load(&outputUnit)) {
-            replaceSourceProcessor(NULL, NULL);
-            atomic_store(&sourceUnit, NULL);
-            sourceTime = 0;
-        }
-        atomic_store(&outputUnit, unit);
-        refreshSource(unit);
+        // A kept chain starts again without a new MakeConnection. A RemoteIO Spotify never connected
+        // (driven by its own callback, or voice search's) takes the processors only from another such.
+        if (unit != atomic_load(&outputUnit) && (routeFor(unit) || !active)) activate(unit);
         AudioUnitRemoveRenderNotify(unit, rendered, unit);
         AudioUnitRemovePropertyListenerWithUserData(unit, kAudioUnitProperty_StreamFormat, formatChanged, NULL);
         AudioUnitAddPropertyListener(unit, kAudioUnitProperty_StreamFormat, formatChanged, NULL);
-        prepare(unit);
+        refreshSource(routeFor(unit));
+        if (unit == atomic_load(&outputUnit)) prepare(unit);
         OSStatus status = AudioUnitAddRenderNotify(unit, rendered, unit);
         if (status != noErr) SGLog(@"audio pipeline: cannot attach output processor (%d)", (int)status);
     }
@@ -261,26 +299,30 @@ static OSStatus start(AudioUnit unit) {
 
 static OSStatus setPropertyWhileStopped(AudioUnit unit, AudioUnitPropertyID property, AudioUnitScope scope, AudioUnitElement element,
                             const void *data, UInt32 size) {
-    if (unit == atomic_load(&outputUnit) && property == kAudioUnitProperty_SetRenderCallback &&
-        scope == kAudioUnitScope_Input && element == 0) {
-        replaceSourceProcessor(NULL, NULL);
-        atomic_store(&sourceUnit, NULL);
+    if (property == kAudioUnitProperty_SetRenderCallback && scope == kAudioUnitScope_Input && element == 0) {
+        if (unit == atomic_load(&outputUnit)) replaceSourceProcessor(NULL, NULL);
+        forget(routeFor(unit)); // Spotify feeds that output itself now
     }
-    if (unit == atomic_load(&sourceUnit) && property == kAudioUnitProperty_MaximumFramesPerSlice && data && size >= sizeof(UInt32)) {
-        UInt32 count = *(const UInt32 *)data;
-        if (count) atomic_store(&maximumFrames, count);
+    if (property == kAudioUnitProperty_MaximumFramesPerSlice && data && size >= sizeof(UInt32) && *(const UInt32 *)data) {
+        for (unsigned i = 0; i < 8; i++) if (routes[i].source && routes[i].source == unit) routes[i].limit = *(const UInt32 *)data;
+        publish();
     }
     if (property != kAudioUnitProperty_MakeConnection || scope != kAudioUnitScope_Input || element != 0 ||
         !data || size < sizeof(AudioUnitConnection) || !remoteIO(unit))
         return originalSet(unit, property, scope, element, data, size);
     replaceSourceProcessor(NULL, NULL);
     const AudioUnitConnection *connection = data;
+    forget(routeFor(unit));
     if (!connection->sourceAudioUnit) {
-        if (unit == atomic_load(&outputUnit)) atomic_store(&sourceUnit, NULL);
         AURenderCallbackStruct none = {0};
         originalSet(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &none, sizeof none);
         return originalSet(unit, property, scope, element, data, size);
     }
+    Route *route = NULL;
+    for (unsigned i = 0; !route && i < 8; i++) if (!routes[i].output) route = &routes[i];
+    if (!route) return originalSet(unit, property, scope, element, data, size);
+    *route = (Route){unit, NULL, connection->sourceOutputNumber, 0, 0, 0};
+    activate(unit);
     // Unsupported formats keep Spotify's original connection. Output-domain pitch still works.
     AudioStreamBasicDescription format = {0};
     UInt32 formatSize = sizeof format;
@@ -289,27 +331,20 @@ static OSStatus setPropertyWhileStopped(AudioUnit unit, AudioUnitPropertyID prop
     if (!originalDispose || read != noErr || format.mFormatID != kAudioFormatLinearPCM || format.mSampleRate <= 0 ||
         !(format.mFormatFlags & kAudioFormatFlagIsFloat) || !(format.mFormatFlags & kAudioFormatFlagIsNonInterleaved) ||
         format.mBitsPerChannel != 32 || format.mBytesPerFrame != sizeof(float) || format.mChannelsPerFrame < 1 || format.mChannelsPerFrame > 2) {
-        atomic_store(&sourceUnit, NULL);
         AURenderCallbackStruct none = {0};
         originalSet(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &none, sizeof none);
         return originalSet(unit, property, scope, element, data, size);
     }
-    sourceTime = 0;
-    sourceChannels = format.mChannelsPerFrame;
     UInt32 limit = 1024, limitSize = sizeof limit;
     if (AudioUnitGetProperty(connection->sourceAudioUnit, kAudioUnitProperty_MaximumFramesPerSlice,
             kAudioUnitScope_Global, 0, &limit, &limitSize) != noErr || !limit) limit = 1024;
-    atomic_store(&maximumFrames, limit);
-    atomic_store(&sourceBus, connection->sourceOutputNumber);
-    atomic_store(&outputUnit, unit);
-    atomic_store(&sourceUnit, connection->sourceAudioUnit);
+    route->source = connection->sourceAudioUnit;
+    route->channels = format.mChannelsPerFrame;
+    route->limit = limit;
+    publish();
     AURenderCallbackStruct callback = {feed, unit};
     OSStatus status = originalSet(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &callback, sizeof callback);
-    if (status == noErr) return noErr;
-    atomic_store(&sourceUnit, NULL);
-    AURenderCallbackStruct none = {0};
-    originalSet(unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &none, sizeof none);
-    return originalSet(unit, property, scope, element, data, size);
+    return status == noErr ? noErr : restore(route);
 }
 
 static OSStatus setProperty(AudioUnit unit, AudioUnitPropertyID property, AudioUnitScope scope, AudioUnitElement element,
@@ -338,16 +373,16 @@ static OSStatus dispose(AudioComponentInstance unit) {
     if (inRender) return kAudioUnitErr_CannotDoInCurrentContext;
     beginChange();
     for (unsigned i = 0; i < 8; i++) if (sourceCallbacks[i].unit == unit) memset(&sourceCallbacks[i], 0, sizeof sourceCallbacks[i]);
+    if (unit == atomic_load(&sourceUnit)) replaceSourceProcessor(NULL, NULL);
+    for (unsigned i = 0; i < 8; i++) if (routes[i].source == unit) routes[i].source = NULL;
+    forget(routeFor(unit));
     if (unit == atomic_load(&outputUnit)) {
         replaceSourceProcessor(NULL, NULL);
         AudioUnitRemoveRenderNotify(unit, rendered, unit);
         AudioUnitRemovePropertyListenerWithUserData(unit, kAudioUnitProperty_StreamFormat, formatChanged, NULL);
         atomic_store(&outputUnit, NULL);
-        atomic_store(&sourceUnit, NULL);
-    } else if (unit == atomic_load(&sourceUnit)) {
-        replaceSourceProcessor(NULL, NULL);
-        atomic_store(&sourceUnit, NULL);
     }
+    publish();
     OSStatus status = originalDispose(unit);
     endChange();
     return status;

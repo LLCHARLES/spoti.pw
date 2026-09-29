@@ -25,6 +25,7 @@ typedef struct {
 static AudioUnit unit(Unit *value) { return (AudioUnit)value; }
 static Unit *mock(AudioUnit value) { return (Unit *)value; }
 static atomic_bool blockRender, renderEntered, releaseRender;
+static _Atomic(void *) blockOnly; // NULL: every unit blocks
 static OSStatus renderError;
 static bool renderSilence, refuseCallback;
 static bool reentrantChange;
@@ -54,7 +55,7 @@ OSStatus AudioUnitRender(AudioUnit value, AudioUnitRenderActionFlags *flags, con
                           &limit, sizeof limit) == kAudioUnitErr_CannotDoInCurrentContext);
         reentrantChange = false;
     }
-    if (atomic_load(&blockRender)) {
+    if (atomic_load(&blockRender) && (!atomic_load(&blockOnly) || atomic_load(&blockOnly) == u)) {
         atomic_store(&renderEntered, true);
         while (!atomic_load(&releaseRender)) usleep(100);
     }
@@ -142,6 +143,54 @@ static OSStatus separate(void *context, UInt32 frames, AudioBufferList *data, co
     return error;
 }
 static void *renderThread(void *context) { assert(render(context, 128) == noErr); return NULL; }
+static void *ownBufferThread(void *context) {
+    float left[128], right[128];
+    struct { AudioBufferList list; AudioBuffer more; } own = {{2, {{1, sizeof left, left}}}, {1, sizeof right, right}};
+    AudioUnitRenderActionFlags flags = 0;
+    assert(feed(unit(context), &flags, NULL, 0, 128, &own.list) == noErr && left[0] == .25f);
+    return NULL;
+}
+
+// Spotify keeps an output chain per sample rate: a local file at another rate opens a second one while the
+// first still plays out, and a kept chain is started again without being connected again.
+static void outputsPerRate(AudioStreamBasicDescription format) {
+    Unit mixA = {.format = format, .limit = 4096}, outA = {.output = true, .format = format, .limit = 4096};
+    Unit mixB = {.format = format, .limit = 4096}, outB = {.output = true, .format = format, .limit = 4096};
+    connect(&mixA, &outA, 0);
+    start(unit(&outA));
+    assert(render(&outA, 512) == noErr && mixA.frames == 512 && pcm[0][0] == .25f);
+    connect(&mixB, &outB, 0);
+    start(unit(&outB));
+    assert(atomic_load(&outputUnit) == unit(&outB));
+    // Each output drains only its own chain, once: the first plays out, the second is not pulled twice.
+    assert(render(&outA, 512) == noErr && mixA.frames == 1024 && mixB.frames == 0 && pcm[0][0] == .25f);
+    assert(render(&outB, 512) == noErr && mixB.frames == 512 && mixA.frames == 1024);
+    unsigned calls = stageCalls;
+    AudioUnitRenderActionFlags flags = kAudioUnitRenderAction_PostRender;
+    rendered(unit(&outA), &flags, NULL, 0, 128, &buffers.list);
+    assert(stageCalls == calls); // processors run on the output started last only
+    start(unit(&outA));
+    assert(atomic_load(&outputUnit) == unit(&outA) && SGAudioPipelineTapped());
+    assert(render(&outA, 512) == noErr && mixA.frames == 1536 && mixA.lastTime == 1024 && pcm[0][0] == .25f);
+    assert(render(&outB, 256) == noErr && mixB.frames == 768 && mixB.lastTime == 512);
+    Unit recorder = {.output = true, .format = format, .limit = 4096};
+    start(unit(&recorder)); // a RemoteIO Spotify never connected does not take the processors
+    assert(atomic_load(&outputUnit) == unit(&outA) && SGAudioPipelineTapped());
+    atomic_store(&renderEntered, false); atomic_store(&releaseRender, false);
+    atomic_store(&blockOnly, &mixB); atomic_store(&blockRender, true);
+    pthread_t other;
+    pthread_create(&other, NULL, ownBufferThread, &outB);
+    while (!atomic_load(&renderEntered)) usleep(100);
+    assert(render(&outA, 128) == noErr && pcm[0][0] == .25f && mixA.frames == 1664); // outputs render at once
+    atomic_store(&releaseRender, true);
+    pthread_join(other, NULL);
+    atomic_store(&blockRender, false); atomic_store(&blockOnly, NULL);
+    assert(mixB.frames == 896);
+    dispose(unit(&outB)); dispose(unit(&mixB));
+    assert(render(&outA, 128) == noErr && mixA.frames == 1792 && SGAudioPipelineTapped());
+    dispose(unit(&outA)); dispose(unit(&mixA));
+    assert(atomic_load(&outputUnit) == NULL && !SGAudioPipelineTapped());
+}
 static void *disposeThread(void *context) { assert(dispose(unit(context)) == noErr); return NULL; }
 
 static atomic_bool clockReading;
@@ -307,10 +356,10 @@ int main(void) {
         SGAudioPipelineSetPullProcessor(NULL);
         assert(SGAudioPipelinePull(128, &buffers.list, NULL) == kAudioUnitErr_NoConnection);
         Unit another = {.output = true, .format = format, .limit = 1024};
-        start(unit(&another));
-        assert(!SGAudioPipelineTapped());
+        start(unit(&another)); // never connected: it does not take the pipeline from an output that was
+        assert(SGAudioPipelineTapped() && atomic_load(&outputUnit) == unit(&output));
         before = source.renders;
-        assert(render(&output, 128) == noErr && source.renders == before && pcm[0][0] == 0);
+        assert(render(&output, 128) == noErr && source.renders == before + 1 && pcm[0][0] == .25f);
         connect(&source, &output, 3);
         AURenderCallbackStruct own = {NULL, NULL};
         setProperty(unit(&output), kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &own, sizeof own);
@@ -343,6 +392,7 @@ int main(void) {
         assert(render(&output, 128) == noErr && pcm[0][0] == 0);
         dispose(unit(&output));
         assert(atomic_load(&outputUnit) == NULL);
+        outputsPerRate(format);
         puts("audio pipeline: ordering, chunking, errors, replacement, formats and concurrent disposal passed");
     }
 }

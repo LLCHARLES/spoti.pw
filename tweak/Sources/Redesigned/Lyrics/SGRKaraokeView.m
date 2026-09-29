@@ -1068,8 +1068,10 @@ typedef struct {
     BOOL _showing;
     CAGradientLayer *_fade;
     UILabel *_credit;
+    SGLyricsCredit *_credited;   // what the lines are credited to, nil while the page asks every frame
     CGFloat _fontSize, _margin, _lineGap, _blurPerLine, _maxBlur;
-    BOOL _crediting;   // the switch is read once: the page asks for the source on every frame until it has one
+    BOOL _crediting;   // Show source, read once
+    BOOL _asksCredit;  // with a source of the mod's on, a credit its terms require shows either way
     double _clock;
     NSInteger _reported;
     CFTimeInterval _clockTime;
@@ -1111,7 +1113,9 @@ typedef struct {
     _credit.font = [UIFont systemFontOfSize:kCreditSize weight:UIFontWeightSemibold];
     _credit.textColor = [UIColor colorWithWhite:1 alpha:kCreditAlpha];
     _credit.hidden = YES;
+    _credit.numberOfLines = 2;
     _crediting = SGFlag(SGKeyLyricsCredit, NO);
+    _asksCredit = _crediting || SGLyricsActive();
     _sweepsEstimates = SGFlag(SGKeyLyricsSimulateWords, NO);
     [self addSubview:_credit];
     [self addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)]];
@@ -1135,6 +1139,10 @@ typedef struct {
 - (void)tapped:(UITapGestureRecognizer *)tap {
     if (self.takesTap && !self.takesTap()) return;
     if (_extras && !_extras.hidden && CGRectContainsPoint(_extras.frame, [tap locationInView:self])) return;
+    if (_credited.links.count && !_credit.hidden && CGRectContainsPoint(CGRectInset(_credit.frame, -8, -8), [tap locationInView:self])) {
+        SGLyricsOpenCredit(_credited);
+        return;
+    }
     CGPoint point = [tap locationInView:_scroll];
     for (SGRKaraokeLineView *view in _shown.allValues) {
         CGRect target = view.bubbleTarget;
@@ -1282,11 +1290,14 @@ typedef struct {
     [super layoutSubviews];
     [self alignFade];
     _scroll.contentSize = self.bounds.size;
-    [_credit sizeToFit];
+    BOOL extras = _extras && !_extras.hidden;
+    CGFloat room = MAX(0, self.bounds.size.width - 2 * _margin - (extras ? kExtrasSide + kExtrasCreditGap : 0));
+    CGSize fits = [_credit sizeThatFits:CGSizeMake(room, CGFLOAT_MAX)];
+    _credit.bounds = CGRectMake(0, 0, MIN(fits.width, room), fits.height);
     CGFloat bottom = self.bounds.size.height - _band.bottom;
     _credit.frame = CGRectMake(_margin, bottom - _credit.bounds.size.height - kCreditBottom,
                                _credit.bounds.size.width, _credit.bounds.size.height);
-    if (_extras && !_extras.hidden) {
+    if (extras) {
         _extras.frame = CGRectMake(_margin, bottom - kExtrasSide - kExtrasBottom, kExtrasSide, kExtrasSide);
         _credit.center = CGPointMake(CGRectGetMaxX(_extras.frame) + kExtrasCreditGap + _credit.bounds.size.width / 2, _extras.center.y);
     }
@@ -1651,8 +1662,9 @@ typedef struct {
     _dots.frame = CGRectMake(_margin, top, _builtWidth - 2 * _margin, _dots.bounds.size.height);
 }
 
-- (void)creditTo:(NSString *)source {
-    NSString *text = source.length && _crediting ? [NSString stringWithFormat:@"Lyrics from %@", source] : nil;
+- (void)creditTo:(SGLyricsCredit *)credit {
+    _credited = credit;
+    NSString *text = credit.text.length && (_crediting || credit.required) ? [NSString stringWithFormat:@"Lyrics from %@", credit.text] : nil;
     if (text == _credit.text || [text isEqualToString:_credit.text]) return;
     _credit.text = text;
     _credit.hidden = !_showing || !text.length;
@@ -1726,7 +1738,7 @@ typedef struct {
     }
     [self setShowing:_tops != nil];
     // The source is settled a moment after the lines are, so it is asked for until it answers.
-    if (_crediting && _lines && !_credit.text.length) [self creditTo:SGLyricsCreditFor(track)];
+    if (_asksCredit && _lines && !_credited) [self creditTo:SGLyricsCreditFor(track)];
     if (!_tops) return;
     [self alignFade];
     if (_plain) {

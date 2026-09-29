@@ -50,6 +50,41 @@ static void prune(void) {
 }
 
 static NSURLSessionDownloadTask *sg_task;
+// Everyone waiting on each download in flight, by file name: the lock screen and the player asking for
+// one clip on the same track share one download.
+static NSMutableDictionary<NSString *, NSMutableArray *> *sg_coming;
+
+static NSObject *comingLock(void) {
+    static NSObject *lock;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        lock = [NSObject new];
+        sg_coming = [NSMutableDictionary dictionary];
+    });
+    return lock;
+}
+
+// NO when `done` joined a download already coming.
+static BOOL firstToAsk(NSString *name, void (^done)(NSURL *file, NSString *note)) {
+    @synchronized (comingLock()) {
+        NSMutableArray *waiting = sg_coming[name];
+        if (waiting) {
+            [waiting addObject:[done copy]];
+            return NO;
+        }
+        sg_coming[name] = [NSMutableArray arrayWithObject:[done copy]];
+        return YES;
+    }
+}
+
+static void landed(NSString *name, NSURL *file, NSString *note) {
+    NSArray *waiting;
+    @synchronized (comingLock()) {
+        waiting = sg_coming[name];
+        [sg_coming removeObjectForKey:name];
+    }
+    for (void (^done)(NSURL *, NSString *) in waiting) done(file, note);
+}
 
 void SGArtworkCancelFetch(void) {
     NSURLSessionDownloadTask *task = sg_task;
@@ -74,22 +109,26 @@ NSURLSessionTask *SGArtworkFetchAside(NSString *identifier, NSString *address, v
         done(local, @"cached");
         return nil;
     }
+    NSString *name = local.lastPathComponent;
+    if (!firstToAsk(name, done)) return nil;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:remote];
     // Low Data Mode marks the path constrained; the download then fails rather than spending the data.
     request.allowsConstrainedNetworkAccess = NO;
     NSURLSessionDownloadTask *task = [NSURLSession.sharedSession downloadTaskWithRequest:request completionHandler:^(NSURL *temporary, NSURLResponse *response, NSError *error) {
         if (!temporary) {
-            done(nil, [NSString stringWithFormat:@"download failed: %@", error.localizedDescription]);
+            landed(name, nil, [NSString stringWithFormat:@"download failed: %@", error.localizedDescription]);
             return;
         }
+        // Moved before the handler returns, which is when the system deletes the download.
         long long length = response.expectedContentLength;
+        NSError *move = nil;
+        [NSFileManager.defaultManager removeItemAtURL:local error:nil];
+        BOOL moved = [NSFileManager.defaultManager moveItemAtURL:temporary toURL:local error:&move];
+        NSString *note = moved ? [NSString stringWithFormat:@"downloaded %lld KB", length / 1024]
+                               : [NSString stringWithFormat:@"not kept: %@", move.localizedDescription];
         dispatch_async(queue(), ^{
-            NSError *move = nil;
-            [NSFileManager.defaultManager removeItemAtURL:local error:nil];
-            BOOL moved = [NSFileManager.defaultManager moveItemAtURL:temporary toURL:local error:&move];
             if (moved) prune();
-            done(moved ? local : nil, moved ? [NSString stringWithFormat:@"downloaded %lld KB", length / 1024]
-                                            : [NSString stringWithFormat:@"not kept: %@", move.localizedDescription]);
+            landed(name, moved ? local : nil, note);
         });
     }];
     [task resume];

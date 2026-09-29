@@ -1,35 +1,42 @@
 // The artwork field: one continuous colour taken from the artwork's main colour (SGRPalette.h) behind
-// a whole redesigned page, with no card and no seam anywhere. The player's field also carries the
-// artwork itself at the top, blurred and dimmed and dissolving into the colour (showsBackdrop).
+// a whole redesigned page, with no card and no seam anywhere. The player's field is the artwork itself
+// instead, blurred and warped (motion).
 //
-// Nothing is blurred live and nothing is masked: the view draws a solid colour layer, a black gradient
-// layer (the redesign is AMOLED throughout, fading the colour to black down the page) and at most one
-// bitmap layer rendered off the main thread, so it costs a few composited layers while the page moves. A new colour or bitmap crossfades over
-// SGRCrossfade; the same image again is a no-op.
+// Still, nothing is blurred live and nothing is masked: the view draws a solid colour layer and a black
+// gradient layer (the redesign is AMOLED throughout, fading the colour to black down the page), so it
+// costs a few composited layers while the page moves. A new colour crossfades over SGRCrossfade; the
+// same image again is a no-op.
 //
 // Ownership: the screen that installs a field owns it (usually retained by its superview and an
 // associated object). The field retains its last image and palette only.
 // Threading: main thread only; the palette work it starts runs off it.
 #import <UIKit/UIKit.h>
+#import "SGRWarp.h"
 
 // Posted on the main thread by a field whose colour changed, with the field as the object and the
 // new colour under "color".
 extern NSNotificationName const SGRFieldColorDidChangeNotification;
 
+typedef NS_ENUM(NSInteger, SGRFieldMotion) {
+    SGRFieldMotionNone,   // the colour alone
+    SGRFieldMotionWarp,   // the artwork itself blurred and warped (SGRWarp.h)
+};
+
 @interface SGRArtworkField : UIView
-// Where the colour, the fade to black and the backdrop reach past the bounds (overscroll, a plane
+// Where the colour, the fade to black and the moving field reach past the bounds (overscroll, a plane
 // that does not clip): positive values draw outside. The field never clips.
 @property (nonatomic) UIEdgeInsets bleed;
-@property (nonatomic) BOOL showsBackdrop;
-// The player's moving field instead of the still backdrop (SGRFlow.h): the artwork's colours drifting
-// over the whole of the bounds, with no fade to black. It moves only while the field is in a window,
-// the app is in front, the player is not opening or closing, Reduce Motion and Low Power Mode are off
-// and nothing holds it (motionHeld); otherwise it stays still where it was.
-@property (nonatomic) BOOL flows;
+// The player's moving field, over the whole of the bounds with no fade to black. It moves only while the
+// field is in a window, the app is in front, the player is not opening or closing, Reduce Motion and Low
+// Power Mode are off and nothing holds it (motionHeld); otherwise it stays still where it was. Without
+// Metal it is the colour alone.
+@property (nonatomic) SGRFieldMotion motion;
+@property (nonatomic) SGRWarpLook warpLook;
 // Held still by the owner (the player while playback is paused).
 @property (nonatomic) BOOL motionHeld;
-// The backdrop's height in points from the top of the bounds; 0 is the window's height.
-@property (nonatomic) CGFloat backdropHeight;
+// Something of the owner's lies opaque over the whole field (the player's Animated artwork): the moving
+// field stops where it is and draws only what changes, in a single frame.
+@property (nonatomic) BOOL covered;
 // SGRNeutralField until a colour arrives.
 @property (nonatomic, readonly) UIColor *fieldColor;
 

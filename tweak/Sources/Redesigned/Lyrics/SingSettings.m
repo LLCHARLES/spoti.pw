@@ -98,7 +98,7 @@ static void confirmRemove(void) {
     [SGTopController() presentViewController:alert animated:YES completion:nil];
 }
 
-// Below iOS 27 the switch is a row saying what is missing, the way Redesigned UI's does below iOS 26.
+// Below iOS 27 the switch is a row saying what is missing.
 static SGModRow *unavailableRow(void) {
     return SGStatActionRow(@"Sing", nil, ^NSString *{ return @"Needs iOS 27"; }, ^{
         tell(@"Sing", [NSString stringWithFormat:@"Sing separates a song's vocals on this iPhone with a voice model that needs iOS 27. "

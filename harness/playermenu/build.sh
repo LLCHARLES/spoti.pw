@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds the player menu harness for the simulator: PlayerMenu.x's hooks and the card (SGRPlayerMenu.m) run
+# Builds the player menu harness for the simulator: PlayerMenu.x's hooks and the system menu run
 # for real over a mock of Spotify's context menu sheet, with Speed and pitch's panel (SpeedPitchMenu.x).
 set -e
 SRC=$(cd "$(dirname "$0")/../../tweak/Sources" && pwd)
@@ -12,7 +12,7 @@ done
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 \
     -I"$SRC" -I"$SRC/Redesigned/Player" -I"$SRC/Shared/Player" -isysroot "$SDK" -Wno-deprecated-declarations \
-    "$(dirname "$0")/main.m" "$OUT"/gen/*.m "$SRC"/Redesigned/Player/SGRPlayerMenu.m \
+    "$(dirname "$0")/main.m" "$OUT"/gen/*.m \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGGlass.m \
     "$SRC"/Core/SGBackdrop.m "$SRC"/Core/SGFlagForce.m "$SRC"/Core/SGUIMode.m "$SRC"/Settings/SGPageStyle.m \
     "$SRC"/Redesigned/Kit/SGRTokens.m "$SRC"/Redesigned/Kit/SGRRestyle.m \

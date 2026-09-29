@@ -5,7 +5,7 @@
 //     SGRTokens.h    colours, type, spacing, radii, motion, the accessibility settings
 //     SGRPalette.h   the artwork's edge colour, the field colour and the pre-blurred bitmaps
 //     SGRField.h     the artwork field behind a page
-//     SGRFlow.h      the player's moving field of the artwork's colours
+//     SGRWarp.h      the player's warped artwork on Metal (kawarp), and a view for its preview
 //     SGRGlass.h     glass inside Spotify's round controls
 //     SGRGlyph.h     bare glyph overlays and glyph buttons
 //     SGRActionRow.h the Play capsule and the stand-in button of a page's action row
@@ -24,7 +24,7 @@
 #import "SGRTokens.h"
 #import "SGRPalette.h"
 #import "SGRField.h"
-#import "SGRFlow.h"
+#import "SGRWarp.h"
 #import "SGRGlass.h"
 #import "SGRGlyph.h"
 #import "SGRActionRow.h"

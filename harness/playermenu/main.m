@@ -8,16 +8,19 @@
 // every other row dismisses the sheet, as Spotify's do. Speed and pitch are stubs that log.
 //
 //     THEOS=$HOME/theos ./build.sh && xcrun simctl install <udid> build/PlayerMenuHarness.app
-//     xcrun simctl launch --console-pty <udid> com.vojta.playermenuharness [scenario] [loading|slow|stuck]
+//     xcrun simctl launch --console-pty <udid> com.vojta.playermenuharness [scenario] [loading|slow|stuck] [differ] [late]
 //
-// Scenarios, each starting with a tap on the ⋯ at 1 s: hold (nothing more), more (opens More at 3 s),
-// speed (opens Speed and pitch at 3 s), follow (opens it, then turns pitch following speed on at 4.5 s and
-// off at 9 s: the panel folds its pitch slider away and back, the card with it), tile (Add to playlist at 3 s), share (Share at 3 s: Spotify's page
-// is pushed and its sheet shown), lyrics (More, then Lyrics: the row reads On), outside (a tap beside the
-// card at 3 s), pending (Add to playlist tapped before Spotify's rows are in: fired once they are with
-// `loading`, Spotify's sheet shown 4 s after the tap with `stuck`). `loading` hands the sheet its rows 1.5 s
-// after it is up, `slow` 7 s after, later than the card once waited; `stuck` never does. The card opens on
-// the rows of the run before, which the harness keeps in its defaults like the phone does.
+// Every run taps the ⋯ at 1 s and reports at 2.2 s the system menu, as built (its groups and rows) and as
+// on screen (its words top to bottom), and whether Spotify's sheet is out of sight. A pick calls the row's
+// handler and closes the menu, in that order, or the other way round with `late`. Scenarios: hold (nothing
+// more), tile (Add to playlist at 3 s), share (Share at 3 s: Spotify's page is pushed and its sheet shown),
+// lyrics (Lyrics at 3 s: Spotify changes the row in place and its sheet is then taken away), speed (Speed and
+// pitch at 3 s: the popover with the sliders), follow (as speed, then pitch following speed on at 4.5 s and
+// off at 9 s: the popover folds away its pitch slider and back), outside (the menu closed at 3 s with nothing
+// picked), pending (Add to playlist picked before Spotify's rows are in: fired once they are with `loading`,
+// Spotify's sheet shown 4 s later with `stuck`). `loading` hands the sheet its rows 1.5 s after it is up,
+// `slow` 7 s after; `stuck` never does. `differ` gives it another track's rows than the ones the run before
+// kept, which the menu opens on, so the open menu has to move to these.
 #import <UIKit/UIKit.h>
 
 #pragma mark - what the hooks call and the harness does not build
@@ -72,6 +75,13 @@ static NSMutableArray<NSMutableArray<NSString *> *> *spotifyRows(void) {
         [@[@"66", @"ticket", @"Go to artist's concerts"] mutableCopy],
         [@[@"22", @"moon", @"Sleep timer"] mutableCopy],
     ] mutableCopy];
+    // Another track's menu: not the rows the last run kept, so the card has to move to these.
+    static BOOL differed;
+    if (argument(@"differ") && !differed) {
+        differed = YES;
+        [rows removeObjectAtIndex:4];
+        rows[1][2] = @"Lyrics • On";
+    }
     return rows;
 }
 
@@ -320,7 +330,6 @@ static BOOL onScreen(UIView *view) {
 
 #pragma mark - reading what is on screen
 
-
 static UIView *find(UIView *root, NSString *className, NSString *label) {
     NSMutableArray<UIView *> *found = [NSMutableArray array];
     collect(root, className, found);
@@ -330,43 +339,101 @@ static UIView *find(UIView *root, NSString *className, NSString *label) {
     return nil;
 }
 
-static void tap(UIWindow *window, NSString *label) {
-    UIControl *control = (UIControl *)(find(window, @"SGRPlayerMenuTile", label) ?: find(window, @"SGRPlayerMenuRow", label));
-    NSLog(@"[harness] tapping \"%@\" on the card: %@", label, control ? @"found" : @"NOT FOUND");
-    [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+static void collectKind(UIView *view, Class kind, NSMutableArray<UIView *> *out) {
+    if ([view isKindOfClass:kind]) [out addObject:view];
+    for (UIView *child in view.subviews) collectKind(child, kind, out);
+}
+
+// The button PlayerMenu.x lays over the ⋯ for the system menu to open from.
+static UIButton *anchorOf(UIWindow *window) {
+    return (UIButton *)find(window, @"SGRPlayerMenuAnchor", nil);
+}
+
+static void describe(UIMenuElement *element, int depth, NSMutableArray<NSString *> *out) {
+    NSString *indent = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
+    if ([element isKindOfClass:UIMenu.class]) {
+        UIMenu *menu = (UIMenu *)element;
+        if (depth > 0) {
+            BOOL inlined = (menu.options & UIMenuOptionsDisplayInline) != 0;
+            [out addObject:inlined ? [NSString stringWithFormat:@"%@--%@", indent, menu.preferredElementSize == UIMenuElementSizeMedium ? @" tiles" : @""]
+                                   : [NSString stringWithFormat:@"%@%@ >", indent, menu.title]];
+        }
+        for (UIMenuElement *child in menu.children) describe(child, depth + 1, out);
+    } else if ([element isKindOfClass:UIAction.class]) {
+        UIAction *action = (UIAction *)element;
+        [out addObject:[NSString stringWithFormat:@"%@%@%@%@%@", indent, action.title,
+                        action.subtitle ? [NSString stringWithFormat:@" (%@)", action.subtitle] : @"",
+                        action.attributes & UIMenuElementAttributesDestructive ? @" [red]" : @"",
+                        action.attributes & UIMenuElementAttributesDisabled ? @" [off]" : @""]];
+    } else {
+        [out addObject:[NSString stringWithFormat:@"%@(loading)", indent]];
+    }
+}
+
+static UIAction *actionNamed(UIMenuElement *element, NSString *title) {
+    if ([element isKindOfClass:UIAction.class]) return [((UIAction *)element).title isEqualToString:title] ? (UIAction *)element : nil;
+    if (![element isKindOfClass:UIMenu.class]) return nil;
+    for (UIMenuElement *child in ((UIMenu *)element).children) {
+        UIAction *found = actionNamed(child, title);
+        if (found) return found;
+    }
+    return nil;
+}
+
+// The words of the menu on screen, top to bottom.
+static NSArray<NSString *> *menuOnScreen(UIWindow *window) {
+    UIView *container = find(window, @"_UIContextMenuContainerView", nil);
+    NSMutableArray<UIView *> *labels = [NSMutableArray array];
+    if (container) collectKind(container, UILabel.class, labels);
+    NSMutableArray<UILabel *> *shown = [NSMutableArray array];
+    for (UILabel *label in (NSArray<UILabel *> *)labels) {
+        BOOL visible = label.text.length && label.window;
+        for (UIView *v = label; v && visible; v = v.superview) visible = !v.hidden && v.alpha > 0.01;
+        if (visible) [shown addObject:label];
+    }
+    [shown sortUsingComparator:^NSComparisonResult(UILabel *a, UILabel *b) {
+        CGRect ra = [a convertRect:a.bounds toView:window], rb = [b convertRect:b.bounds toView:window];
+        if (fabs(ra.origin.y - rb.origin.y) > 4) return ra.origin.y < rb.origin.y ? NSOrderedAscending : NSOrderedDescending;
+        return ra.origin.x < rb.origin.x ? NSOrderedAscending : NSOrderedDescending;
+    }];
+    return [shown valueForKey:@"text"];
 }
 
 static void report(UIWindow *window, NSString *when) {
-    UIView *card = find(window, @"SGRPlayerMenuCard", nil);
+    UIButton *anchor = anchorOf(window);
     UIViewController *presented = window.rootViewController.presentedViewController;
-    UIView *sheet = presented.presentationController.presentedView;
-    NSMutableArray<UIView *> *controls = [NSMutableArray array];
-    collect(card, @"SGRPlayerMenuTile", controls);
-    collect(card, @"SGRPlayerMenuRow", controls);
-    [controls sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        CGRect ra = [a convertRect:a.bounds toView:card], rb = [b convertRect:b.bounds toView:card];
-        if (fabs(ra.origin.y - rb.origin.y) > 1) return ra.origin.y < rb.origin.y ? NSOrderedAscending : NSOrderedDescending;
-        return ra.origin.x < rb.origin.x ? NSOrderedAscending : NSOrderedDescending;
-    }];
-    NSMutableArray<NSString *> *lines = [NSMutableArray array];
-    for (UIView *control in controls) {
-        CGRect frame = [control convertRect:control.bounds toView:card];
-        BOOL visible = frame.size.height > 1 && control.window && CGRectIntersectsRect(frame, card.bounds);
-        UIView *clip = control.superview;
-        while (clip && clip != card) {
-            if (clip.clipsToBounds && clip.bounds.size.height < 1) visible = NO;
-            clip = clip.superview;
-        }
-        if (!visible) continue;
-        [lines addObject:[NSString stringWithFormat:@"%@%@%@ @%.0f h%.0f", [control.class isEqual:NSClassFromString(@"SGRPlayerMenuTile")] ? @"[tile] " : @"",
-                          control.accessibilityLabel, control.accessibilityValue ? [NSString stringWithFormat:@" (%@)", control.accessibilityValue] : @"",
-                          frame.origin.y, frame.size.height]];
+    BOOL isSheet = presented.presentationController.class == NSClassFromString(@"_TtC22NavigationUI_SheetImpl27SheetPresentationController");
+    UIView *sheet = isSheet ? presented.presentationController.presentedView : nil;
+    NSString *sheetState = !isSheet ? @"none" : !sheet.hidden && sheet.alpha > 0.01 && !(sheet.layer.mask && sheet.layer.mask.frame.size.width <= 1) ? @"SHOWN" : @"out of sight";
+    NSMutableArray<NSString *> *model = [NSMutableArray array];
+    if (anchor.menu) describe(anchor.menu, 0, model);
+    NSArray<NSString *> *screen = menuOnScreen(window);
+    NSString *panel = @"";
+    if ([NSStringFromClass(presented.class) isEqualToString:@"SGRSpeedPitchPanel"]) {
+        NSMutableArray<UIView *> *sliders = [NSMutableArray array];
+        collectKind(presented.view, UISlider.class, sliders);
+        panel = [NSString stringWithFormat:@"; Speed and pitch's popover %@ with %lu sliders", NSStringFromCGSize(presented.preferredContentSize), (unsigned long)sliders.count];
     }
-    NSLog(@"[harness] %@: card %@ alpha %.2f in %@; Spotify's sheet %@ %@ touches %d; presented %@\n  %@", when,
-          card ? NSStringFromCGRect(card.frame) : @"none", card.alpha, card.superview ? NSStringFromClass(card.superview.class) : @"nothing",
-          sheet ? NSStringFromClass(sheet.class) : @"none",
-          !sheet.hidden && sheet.alpha > 0.01 && !(sheet.layer.mask && sheet.layer.mask.frame.size.width <= 1) ? @"SHOWN" : @"out of sight", sheet.userInteractionEnabled,
-          presented ? @"yes" : @"no", [lines componentsJoinedByString:@"\n  "]);
+    NSLog(@"[harness] %@: menu %@; Spotify's sheet %@; presented %@%@\n  built:\n  %@\n  on screen: %@", when,
+          screen.count ? @"ON SCREEN" : @"not on screen", sheetState, presented ? NSStringFromClass(presented.class) : @"nothing", panel,
+          [model componentsJoinedByString:@"\n  "], [screen componentsJoinedByString:@" | "]);
+}
+
+// A row picked: its handler, then the menu closed, as a tap does (the other way round with `late`).
+static void choose(UIWindow *window, NSString *title) {
+    UIButton *anchor = anchorOf(window);
+    UIAction *action = actionNamed(anchor.menu, title);
+    void (^handler)(UIAction *) = nil;
+    @try { handler = [action valueForKey:@"handler"]; } @catch (NSException *e) {}
+    NSLog(@"[harness] picking \"%@\": %@", title, handler ? @"found" : @"NOT FOUND");
+    if (!handler) return;
+    if (argument(@"late")) {
+        [anchor.contextMenuInteraction dismissMenu];
+        after(0.15, ^{ handler(action); });
+    } else {
+        handler(action);
+        [anchor.contextMenuInteraction dismissMenu];
+    }
 }
 
 static void dump(UIView *view, int depth, NSMutableString *out) {
@@ -405,37 +472,35 @@ static void dump(UIView *view, int depth, NSMutableString *out) {
         [player.more sendActionsForControlEvents:UIControlEventTouchUpInside];
     });
     after(2.2, ^{ report(window, @"open"); });
+    if (argument(@"hold")) after(5, ^{ report(window, @"still open at 5 s"); });
     if (argument(@"dimmings")) for (NSNumber *at in @[@1.05, @1.5, @4]) after(at.doubleValue, ^{
         NSMutableArray<UIView *> *found = [NSMutableArray array];
         collect(window, @"UIDimmingView", found);
         NSMutableArray<NSString *> *lines = [NSMutableArray array];
-        for (UIView *v in found) [lines addObject:[NSString stringWithFormat:@"in %@ (%@) hidden %d alpha %.2f", NSStringFromClass(v.superview.class),
-                                                   v.superview == window.rootViewController.presentedViewController.presentationController.containerView ? @"the sheet's container" : @"elsewhere", v.hidden, v.alpha]];
+        for (UIView *v in found) [lines addObject:[NSString stringWithFormat:@"in %@ hidden %d alpha %.2f", NSStringFromClass(v.superview.class), v.hidden, v.alpha]];
         NSLog(@"[harness] %.2f s: UIDimmingViews: %@", at.doubleValue, [lines componentsJoinedByString:@"; "]);
     });
     if (argument(@"dump")) after(2.4, ^{
         NSMutableString *out = [NSMutableString string];
-        dump(window.rootViewController.presentedViewController.presentationController.containerView, 0, out);
-        NSLog(@"[harness] container:%@", out);
+        dump(window, 0, out);
+        NSLog(@"[harness] window:%@", out);
     });
-    // The card stays while Spotify's rows are late or never come; only a row tapped meanwhile gives it up.
+    if (argument(@"loading")) after(4.5, ^{ report(window, @"after the late rows"); });
     if (argument(@"stuck")) after(6, ^{ report(window, @"no rows at 6 s"); });
     if (argument(@"slow")) {
         after(6, ^{ report(window, @"no rows yet at 6 s"); });
-        after(9, ^{ report(window, @"after the slow rows"); });
+        after(10, ^{ report(window, @"after the slow rows"); });
     }
-    if (argument(@"more")) {
-        after(3, ^{ tap(window, @"More"); });
-        after(4, ^{ report(window, @"More opened"); });
-    } else if (argument(@"speed")) {
-        after(3, ^{ tap(window, @"Speed and pitch"); });
-        after(4, ^{ report(window, @"Speed and pitch opened"); });
-    } else if (argument(@"follow")) {
-        after(3, ^{ tap(window, @"Speed and pitch"); });
-        after(4, ^{ report(window, @"Speed and pitch opened"); });
+    if (argument(@"speed") || argument(@"follow")) {
+        after(3, ^{ choose(window, @"Speed and pitch"); });
+        after(4, ^{ report(window, @"Speed and pitch picked"); });
+    }
+    if (argument(@"follow")) {
         for (NSNumber *at in @[@4.5, @9]) after(at.doubleValue, ^{
-            // The card's: Speed and pitch's block is in Spotify's sheet as well, out of sight under it.
-            UISwitch *toggle = (UISwitch *)find(find(window, @"SGRPlayerMenuCard", nil), @"UISwitch", @"Pitch follows speed");
+            UIViewController *panel = window.rootViewController.presentedViewController;
+            NSMutableArray<UIView *> *switches = [NSMutableArray array];
+            collectKind(panel.view, UISwitch.class, switches);
+            UISwitch *toggle = (UISwitch *)switches.firstObject;
             NSLog(@"[harness] switching pitch follows speed %@: %@", toggle.on ? @"off" : @"on", toggle ? @"found" : @"NOT FOUND");
             toggle.on = !toggle.on;
             [toggle sendActionsForControlEvents:UIControlEventValueChanged];
@@ -443,31 +508,26 @@ static void dump(UIView *view, int depth, NSMutableString *out) {
         after(5.5, ^{ report(window, @"pitch follows speed"); });
         after(10, ^{ report(window, @"pitch no longer follows"); });
     } else if (argument(@"tile")) {
-        after(3, ^{ tap(window, @"Add to playlist"); });
+        after(3, ^{ choose(window, @"Add to playlist"); });
         after(4, ^{ report(window, @"after Add to playlist"); });
     } else if (argument(@"share")) {
-        after(3, ^{ tap(window, @"Share"); });
+        after(3, ^{ choose(window, @"Share"); });
         after(4, ^{ report(window, @"after Share"); });
     } else if (argument(@"lyrics")) {
-        after(3, ^{ tap(window, @"More"); });
-        after(4, ^{ tap(window, @"Lyrics"); });
-        after(5, ^{ report(window, @"after Lyrics"); });
+        after(3, ^{ choose(window, @"Lyrics"); });
+        after(3.4, ^{ report(window, @"just after Lyrics"); });
+        after(5, ^{ report(window, @"2 s after Lyrics"); });
     } else if (argument(@"pending")) {
-        // With `loading`: Add to playlist tapped on the last menu's rows before Spotify's are in.
-        after(2.1, ^{ tap(window, @"Add to playlist"); });
-        after(4, ^{ report(window, @"after the held tap"); });
-        after(7, ^{ report(window, @"5 s after the held tap"); });
+        // With `loading`: Add to playlist picked on the last menu's rows before Spotify's are in.
+        after(1.6, ^{ choose(window, @"Add to playlist"); });
+        after(4, ^{ report(window, @"after the held pick"); });
+        after(7, ^{ report(window, @"5 s after the held pick"); });
     } else if (argument(@"outside")) {
         after(3, ^{
-            NSMutableArray<UIView *> *found = [NSMutableArray array];
-            UIView *card = find(window, @"SGRPlayerMenuCard", nil);
-            for (UIView *view in card.superview.subviews) {
-                if ([view isKindOfClass:UIControl.class] && view != card) [found addObject:view];
-            }
-            NSLog(@"[harness] tapping beside the card: %lu catchers", (unsigned long)found.count);
-            [(UIControl *)found.lastObject sendActionsForControlEvents:UIControlEventTouchDown];
+            NSLog(@"[harness] closing the menu with nothing picked");
+            [anchorOf(window).contextMenuInteraction dismissMenu];
         });
-        after(4, ^{ report(window, @"after a tap outside"); });
+        after(4, ^{ report(window, @"after closing it"); });
     }
 }
 

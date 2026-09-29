@@ -178,7 +178,7 @@ static void requestFromSpotify(NSString *trackID, BOOL retry) {
             NSArray<SGKaraokeLine *> *kept = sg_lyrics[trackID];
             if (kept && SGKaraokeLinesTiming(kept) <= SGKaraokeLinesTiming(lines)) return;
             keep(trackID, lines);
-            SGLyricsSetCredit(trackID, @"Spotify");
+            SGLyricsSetCredit(trackID, SGLyricsCreditNamed(@"Spotify"));
         });
     }] resume];
 }
@@ -202,7 +202,7 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
         [sg_asking removeObject:trackID];
         if (lyrics.karaokeLines) {
             keep(trackID, lyrics.karaokeLines);   // on the main queue, where the fetch answers
-            SGLyricsSetCredit(trackID, lyrics.provider);
+            SGLyricsSetCredit(trackID, lyrics.credit);
             // Plain text is shown while Spotify is asked whether it has the song timed.
             if (SGKaraokeLinesTiming(lyrics.karaokeLines) != SGKaraokeTimingNone) return;
         }
@@ -341,13 +341,13 @@ static SGKaraokeTrackWatcher *sg_trackWatcher;
 %ctor {
     // The sources that search by name learn the name from the player, so the player is caught
     // whenever one is on, not only for the redesign's lyrics and the lock screen.
-    if (!SGRedesignedUI() && !SGFlag(SGKeyLockScreenLyrics, NO) && !SGLyricsEnabled()) return;
+    if (!SGRedesignedUI() && !SGFlag(SGKeyLockScreenLyrics, NO) && !SGLyricsActive()) return;
     sg_seenTracks = [NSMutableDictionary dictionary];
     sg_lyrics = [NSMutableDictionary dictionary];
     sg_requested = [NSMutableSet set];
     sg_asking = [NSMutableSet set];
     sg_losses = [NSMutableDictionary dictionary];
-    sg_ownSources = SGLyricsEnabled();
+    sg_ownSources = SGLyricsActive();
     %init;
     sg_trackWatcher = [SGKaraokeTrackWatcher new];
     SGAddPlayerStateObserver(sg_trackWatcher);

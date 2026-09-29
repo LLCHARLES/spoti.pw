@@ -8,6 +8,7 @@
 // Redesigned UI, the one switch between the two looks, and what its ⓘ reads out.
 void SGSetRedesignedUI(BOOL on);
 extern NSString *const SGRedesignedUIInfo;
+NSString *SGRedesignUntestedWarning(void);   // below iOS 26, shown before the redesign is picked
 
 SGModSection *SGAppearanceSection(void);   // the Appearance card at the top of Mod Settings
 UIViewController *SGPlayerSettingsPage(void);

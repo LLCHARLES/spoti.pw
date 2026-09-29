@@ -56,16 +56,28 @@ static void glassInside(UIViewController *unit, NSArray<NSString *> *identifiers
     }
 }
 
+static void layOutHeader(UIViewController *unit) {
+    static const void *keys[] = {&kCloseKey, &kMoreKey};
+    glassInside(unit, @[@"now-playing-minimize-button", @"Context menu"], keys);
+}
+
 %hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
 - (void)viewDidLayoutSubviews {
     %orig;
-    static const void *keys[] = {&kCloseKey, &kMoreKey};
-    glassInside((UIViewController *)self, @[@"now-playing-minimize-button", @"Context menu"], keys);
+    layOutHeader((UIViewController *)self);
+}
+%end
+
+// Spotify Free's player builds the same elements into units of its own (Player.h).
+%hook _TtC32ReinventFree_ReinventFreeNpvImpl43ReinventFreeNavigationBarUnitViewController
+- (void)viewDidLayoutSubviews {
+    %orig;
+    layOutHeader((UIViewController *)self);
 }
 %end
 
 %ctor {
     if (!SGRedesignedUI()) return;
     %init;
-    SGRequireClasses(@[@"_TtC20NowPlaying_ModesImpl18HeaderElementsUnit"]);
+    SGRequireClasses(@[@"_TtC20NowPlaying_ModesImpl18HeaderElementsUnit", @"_TtC32ReinventFree_ReinventFreeNpvImpl43ReinventFreeNavigationBarUnitViewController"]);
 }
