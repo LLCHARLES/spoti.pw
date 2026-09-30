@@ -116,6 +116,12 @@ void SGRPlayerFitClipToCover(void) {
     if (!clip) return;
     CGRect cover = SGRPlayerCoverFrameIn(plane);
     if (CGRectIsNull(cover) || cover.size.width < 100) return;
+    // Spotify's cover is a square; if the converted frame came out wider (a transform oddity), snap it
+    // back to a square centred on the same point.
+    CGFloat side = MIN(cover.size.width, cover.size.height);
+    if (side > 0 && (fabs(cover.size.width - side) > 1 || fabs(cover.size.height - side) > 1)) {
+        cover = CGRectMake(CGRectGetMidX(cover) - side / 2, CGRectGetMidY(cover) - side / 2, side, side);
+    }
     if (!CGRectEqualToRect(clip.frame, cover)) clip.frame = cover;
 }
 
