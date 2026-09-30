@@ -107,22 +107,19 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
 
 #pragma mark - the player's own cover
 
-// Size the animated clip to the cover's frame, called whenever either the plane or the cover list lays
-// out, so the square follows the cover even when the plane lays out first.
+// The animated clip fills the top of the screen down to where the title begins — the way Spotify's own
+// Canvas and Apple Music show the motion artwork — and fades into the blurred background below it.
 void SGRPlayerFitClipToCover(void) {
     SGRArtworkField *field = sg_field;
     UIView *plane = field.superview;
     UIView *clip = plane ? SGRPlayerAnimatedViewIn(plane, field) : nil;
     if (!clip) return;
-    CGRect cover = SGRPlayerCoverFrameIn(plane);
-    if (CGRectIsNull(cover) || cover.size.width < 100) return;
-    // Spotify's cover is a square; if the converted frame came out wider (a transform oddity), snap it
-    // back to a square centred on the same point.
-    CGFloat side = MIN(cover.size.width, cover.size.height);
-    if (side > 0 && (fabs(cover.size.width - side) > 1 || fabs(cover.size.height - side) > 1)) {
-        cover = CGRectMake(CGRectGetMidX(cover) - side / 2, CGRectGetMidY(cover) - side / 2, side, side);
-    }
-    if (!CGRectEqualToRect(clip.frame, cover)) clip.frame = cover;
+    CGRect area = SGRPlayerArtworkAreaIn(plane);
+    CGFloat width = plane.bounds.size.width;
+    CGFloat top = 0;
+    CGFloat bottom = CGRectIsNull(area) ? plane.bounds.size.height * 0.55 : CGRectGetMaxY(area);
+    CGRect frame = CGRectMake(0, top, width, bottom - top);
+    if (!CGRectEqualToRect(clip.frame, frame)) clip.frame = frame;
 }
 
 // The picture of the cell under the middle of the list once it has settled: mid swipe the middle is

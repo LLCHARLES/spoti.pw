@@ -188,8 +188,6 @@ static float dimFor(float light, BOOL lyricsUp) {
     self.userInteractionEnabled = NO;
     self.accessibilityElementsHidden = YES;
     self.clipsToBounds = YES;
-    self.layer.cornerRadius = SGRRadiusArtwork;
-    self.layer.cornerCurve = kCACornerCurveContinuous;
     self.layer.opacity = 0;
     _leaving = [NSMutableArray array];
     NSNull *off = NSNull.null;
@@ -210,6 +208,11 @@ static float dimFor(float light, BOOL lyricsUp) {
                       (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
     _shade.locations = @[@0.45, @0.75, @1];
     [self.layer addSublayer:_shade];
+    // Soft fade at the bottom edge so the clip melts into the blurred Fluid artwork below.
+    CAGradientLayer *fade = [CAGradientLayer layer];
+    fade.colors = @[(id)UIColor.blackColor.CGColor, (id)UIColor.blackColor.CGColor, (id)UIColor.clearColor.CGColor];
+    fade.locations = @[@0, @0.82, @1];
+    self.layer.mask = fade;
     return self;
 }
 
@@ -226,6 +229,7 @@ static float dimFor(float light, BOOL lyricsUp) {
     _shade.frame = bounds;
     _clip.layer.frame = bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = bounds;
+    ((CAGradientLayer *)self.layer.mask).frame = bounds;
 }
 
 - (void)didMoveToWindow {
