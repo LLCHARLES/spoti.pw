@@ -13,10 +13,9 @@
 #import "Redesigned/Kit/SGRKit.h"
 #import "Player.h"
 
-// The cover sits smaller than Spotify's 354pt, the way Apple Music's player frames it: about 80% of
-// the width, with room on either side. Paused it shrinks a little more, as the Music app's does.
-static const CGFloat kPlayScale = 0.80;
-static const CGFloat kPausedScale = 0.70, kPausedScaleReduceMotion = 0.76;
+// The cover fills Spotify's 354pt tilt view at full size; paused it shrinks a little, as the Music app's does.
+static const CGFloat kPlayScale = 1.0;
+static const CGFloat kPausedScale = 0.92, kPausedScaleReduceMotion = 0.95;
 // The bar's 40pt cover lives in a tilt view of its own; the player's is 354.
 static const CGFloat kCoverMinWidth = 200;
 
