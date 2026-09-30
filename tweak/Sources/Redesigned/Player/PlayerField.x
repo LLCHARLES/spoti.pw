@@ -89,10 +89,16 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
     UIView *clip = SGRPlayerAnimatedViewIn(plane, field);
     keepOnTop(plane, clip ? @[field, clip] : @[field]);
     if (!CGRectEqualToRect(field.frame, plane.bounds)) field.frame = plane.bounds;
-    // The screen the plane starts with; the pull above it shows the field.
-    CGFloat height = plane.window.bounds.size.height ?: UIScreen.mainScreen.bounds.size.height;
-    CGRect screen = CGRectMake(0, 0, plane.bounds.size.width, height);
-    if (clip && !CGRectEqualToRect(clip.frame, screen)) clip.frame = screen;
+    // The animated cover sits in the cover's own square, not over the whole screen: the Canvas clip
+    // plays where the album art does, the way Apple Music frames it, and Fluid artwork shows below.
+    if (clip) {
+        CGRect cover = SGRPlayerCoverFrameIn(plane);
+        if (CGRectIsNull(cover) || cover.size.width < 100) {
+            CGFloat height = plane.window.bounds.size.height ?: UIScreen.mainScreen.bounds.size.height;
+            cover = CGRectMake(0, 0, plane.bounds.size.width, height);
+        }
+        if (!CGRectEqualToRect(clip.frame, cover)) clip.frame = cover;
+    }
 }
 
 - (void)backgroundViewModel:(id)model didChangeColor:(id)color playerState:(id)state {

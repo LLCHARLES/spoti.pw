@@ -188,6 +188,8 @@ static float dimFor(float light, BOOL lyricsUp) {
     self.userInteractionEnabled = NO;
     self.accessibilityElementsHidden = YES;
     self.clipsToBounds = YES;
+    self.layer.cornerRadius = SGRRadiusArtwork;
+    self.layer.cornerCurve = kCACornerCurveContinuous;
     self.layer.opacity = 0;
     _leaving = [NSMutableArray array];
     NSNull *off = NSNull.null;
@@ -571,8 +573,9 @@ static void update(void) {
 
 static void covered(BOOL covers) {
     SGRArtworkField *field = sg_field;
-    field.covered = covers;
-    say(@"Fluid artwork %@", covers ? @"stops under the clip" : @"draws again");
+    // The clip is a square over the cover now, not over the whole field, so Fluid artwork keeps drawing.
+    field.covered = NO;
+    say(@"Fluid artwork draws while the clip is a square over the cover");
 }
 
 // The cover goes as a clip fades in and comes back as it fades out, over the same time (PlayerArtwork.x).
@@ -616,7 +619,8 @@ UIView *SGRPlayerAnimatedViewIn(UIView *plane, SGRArtworkField *field) {
         say(@"view made in the background plane");
     }
     sg_field = field;
-    if (field.covered != view.covers) field.covered = view.covers;
+    // The clip is a square over the cover; Fluid artwork always draws behind it.
+    field.covered = NO;
     // Another player's plane: the covers follow its clip instead.
     if (sg_view != view) {
         sg_view = view;
