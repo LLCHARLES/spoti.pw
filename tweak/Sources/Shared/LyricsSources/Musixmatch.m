@@ -294,11 +294,13 @@ static void ask(NSString *trackID, BOOL renewToken) {
               : lyrics.synced ? [NSString stringWithFormat:@"%lu line timed lines", (unsigned long)lyrics.karaokeLines.count]
               : [NSString stringWithFormat:@"%lu untimed lines", (unsigned long)lyrics.texts.count]);
         // Translations come from crowd.track.translations.get; subtitle_translated is restricted.
+        // Musixmatch takes a bare language tag ("zh"), not a script one ("zh-Hans").
         NSString *lang = SGLyricsTranslationLanguage();
         if (lyrics && lang.length) {
+            NSString *mxmLang = [[lang componentsSeparatedByString:@"-"] firstObject];
             call(@"crowd.track.translations.get", token, @{
                 @"track_spotify_id": trackID,
-                @"selected_language": lang,
+                @"selected_language": mxmLang,
             }, ^(NSDictionary *tMessage) {
                 NSInteger tStatus = [dig(tMessage, @"header/status_code") integerValue];
                 if (tStatus == 200) applyCrowdTranslation(lyrics, dig(tMessage, @"body/translations_list"));
