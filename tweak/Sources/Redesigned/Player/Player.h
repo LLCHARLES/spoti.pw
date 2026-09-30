@@ -75,6 +75,8 @@ void SGRPlayerMenuWatchMoreButton(UIView *button);
 
 // The field behind the player, nil until the player has laid out once (PlayerField.x).
 SGRArtworkField *SGRPlayerField(void);
+// Size the animated clip to the cover's square frame (PlayerField.x).
+void SGRPlayerFitClipToCover(void);
 
 #pragma mark - Animated artwork (PlayerAnimated.x)
 

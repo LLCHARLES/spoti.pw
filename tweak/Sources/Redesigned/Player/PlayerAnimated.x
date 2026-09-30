@@ -581,6 +581,7 @@ static void covered(BOOL covers) {
 // The cover goes as a clip fades in and comes back as it fades out, over the same time (PlayerArtwork.x).
 static void shownChanged(BOOL shown, NSTimeInterval duration) {
     say(@"the cover %@ over %.2f s", shown ? @"goes as the clip fades in" : @"comes back as the clip fades out", duration);
+    if (shown) SGRPlayerFitClipToCover();
     SGRPlayerCoversFollowClip(duration);
 }
 

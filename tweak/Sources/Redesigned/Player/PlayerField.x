@@ -90,7 +90,7 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
     keepOnTop(plane, clip ? @[field, clip] : @[field]);
     if (!CGRectEqualToRect(field.frame, plane.bounds)) field.frame = plane.bounds;
     // The animated cover sits in the cover's own square, not over the whole screen.
-    fitClipToCover();
+    SGRPlayerFitClipToCover();
 }
 
 - (void)backgroundViewModel:(id)model didChangeColor:(id)color playerState:(id)state {
@@ -109,7 +109,7 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
 
 // Size the animated clip to the cover's frame, called whenever either the plane or the cover list lays
 // out, so the square follows the cover even when the plane lays out first.
-static void fitClipToCover(void) {
+void SGRPlayerFitClipToCover(void) {
     SGRArtworkField *field = sg_field;
     UIView *plane = field.superview;
     UIView *clip = plane ? SGRPlayerAnimatedViewIn(plane, field) : nil;
@@ -154,7 +154,7 @@ static void publishCover(void) {
     %orig;
     sg_coverList = (UIScrollView *)self;
     publishCover();
-    fitClipToCover();
+    SGRPlayerFitClipToCover();
 }
 %end
 
@@ -175,7 +175,7 @@ static void publishCover(void) {
     for (NSNumber *delay in @[@0.3, @1, @2.5]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             publishCover();
-            fitClipToCover();
+            SGRPlayerFitClipToCover();
         });
     }
 }
