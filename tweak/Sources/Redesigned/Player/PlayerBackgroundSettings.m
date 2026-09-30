@@ -20,11 +20,12 @@ typedef struct {
     BOOL percent;
 } SGRFluidSlider;
 
-static const SGRFluidSlider kSpeed = {SGRKeyFluidSpeed, @"Speed", 25, 300, 25, 100, YES};
-static const SGRFluidSlider kWarp = {SGRKeyFluidWarp, @"Warp", 0, 100, 5, 100, YES};
-static const SGRFluidSlider kBlur = {SGRKeyFluidBlur, @"Blur", 2, 24, 1, 8, NO};
-static const SGRFluidSlider kSaturation = {SGRKeyFluidSaturation, @"Saturation", 0, 250, 10, 150, YES};
-static const SGRFluidSlider kBrightness = {SGRKeyFluidBrightness, @"Brightness", 40, 150, 5, 100, YES};
+// Apple Music-like defaults: heavy blur, gentle warp, slightly dimmed so text reads well.
+static const SGRFluidSlider kSpeed = {SGRKeyFluidSpeed, @"Speed", 25, 300, 25, 60, YES};
+static const SGRFluidSlider kWarp = {SGRKeyFluidWarp, @"Warp", 0, 100, 5, 15, YES};
+static const SGRFluidSlider kBlur = {SGRKeyFluidBlur, @"Blur", 2, 24, 1, 14, NO};
+static const SGRFluidSlider kSaturation = {SGRKeyFluidSaturation, @"Saturation", 0, 250, 10, 130, YES};
+static const SGRFluidSlider kBrightness = {SGRKeyFluidBrightness, @"Brightness", 40, 150, 5, 75, YES};
 
 static NSInteger stored(SGRFluidSlider slider) {
     return MAX(slider.minimum, MIN(slider.maximum, SGInt(slider.key, slider.fallback)));
@@ -47,8 +48,8 @@ static void migrate(void) {
 
 SGRPlayerBackground SGRPlayerBackgroundStyle(void) {
     migrate();
-    NSInteger style = SGInt(SGRKeyPlayerBackground, kDefaultBackground);
-    return style >= SGRPlayerBackgroundFluid && style <= SGRPlayerBackgroundAnimated ? (SGRPlayerBackground)style : kDefaultBackground;
+    // Animated artwork disabled: always Fluid artwork (Apple Music-style blurred cover).
+    return SGRPlayerBackgroundFluid;
 }
 
 SGRWarpLook SGRPlayerFluidLook(void) {
@@ -126,18 +127,10 @@ static SGModRow *sliderRow(SGRFluidSlider slider) {
         });
 }
 
-static NSArray<SGModRow *> *shownFor(SGRPlayerBackground background, NSArray<SGModRow *> *rows) {
-    for (SGModRow *row in rows) row.visible = ^BOOL { return SGRPlayerBackgroundStyle() == background; };
-    return rows;
-}
-
 NSArray<SGModSection *> *SGRPlayerBackgroundSections(void) {
     migrate();
-    NSArray<SGModRow *> *choices = SGChoiceListRows(SGRKeyPlayerBackground, @[@"Fluid artwork", @"Animated artwork"],
-        @[@"The cover itself, blurred and slowly warped", @"The track's Canvas or the album's animated cover, looping"],
-        kDefaultBackground, ^(NSInteger index) {
-            [NSNotificationCenter.defaultCenter postNotificationName:SGRPlayerBackgroundDidChangeNotification object:nil];
-        });
+    // Animated artwork removed: the player always uses Fluid artwork (blurred cover), Apple Music style.
+    [NSUserDefaults.standardUserDefaults setInteger:SGRPlayerBackgroundFluid forKey:SGRKeyPlayerBackground];
 
     SGModRow *preview = SGViewRow([SGRFluidPreview new], kPreviewHeight);
     NSArray<SGModRow *> *sliders = @[sliderRow(kSpeed), sliderRow(kWarp), sliderRow(kBlur), sliderRow(kSaturation), sliderRow(kBrightness)];
@@ -150,16 +143,10 @@ NSArray<SGModSection *> *SGRPlayerBackgroundSections(void) {
     reset.color = SGRed();
     reset.symbol = @"arrow.counterclockwise";
 
-    SGModRow *sources = SGArtworkSourcesRow(SGRKeyPlayerArtworkSources,
-        @"Asked top to bottom until one has a clip. Apple Music gets only the artist and album name.");
-
     return @[
-        SGNotedSection(@"Background", choices, @"A paused song holds the background still."),
-        SGSection(nil, shownFor(SGRPlayerBackgroundFluid, @[preview])),
-        SGNotedSection(nil, shownFor(SGRPlayerBackgroundFluid, sliders),
+        SGNotedSection(@"Background", @[preview], @"The cover, blurred and dimmed. A paused song holds it still."),
+        SGNotedSection(nil, sliders,
                        @"The player follows these as they move. Brightness past 100% can make white text harder to read on a light cover."),
-        SGSection(nil, shownFor(SGRPlayerBackgroundFluid, @[reset])),
-        SGNotedSection(nil, shownFor(SGRPlayerBackgroundAnimated, @[sources]),
-                       @"A track without a clip shows Fluid artwork, and so does every track in Low Power Mode or with Reduce Motion on."),
+        SGSection(nil, @[reset]),
     ];
 }
