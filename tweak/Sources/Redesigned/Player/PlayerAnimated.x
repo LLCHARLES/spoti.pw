@@ -170,6 +170,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
     CALayer *_clips;
     CALayer *_dim;
     CAGradientLayer *_shade;
+    UIVisualEffectView *_blur;   // the live blur over the bottom edge
     NSMutableArray<SGRPlayerClip *> *_leaving;   // under the one coming in until it is in
     BOOL _playing, _lyricsUp;
     float _light;   // the shown clip's
@@ -208,11 +209,12 @@ static float dimFor(float light, BOOL lyricsUp) {
                       (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
     _shade.locations = @[@0.45, @0.75, @1];
     [self.layer addSublayer:_shade];
-    // Soft fade at the bottom edge so the clip melts into the blurred Fluid artwork below.
-    CAGradientLayer *fade = [CAGradientLayer layer];
-    fade.colors = @[(id)UIColor.blackColor.CGColor, (id)UIColor.blackColor.CGColor, (id)UIColor.clearColor.CGColor];
-    fade.locations = @[@0, @0.82, @1];
-    self.layer.mask = fade;
+    // A live blur over the bottom of the clip samples the video itself, so the edge melts into the
+    // blurred background and follows what is on screen instead of a fixed gradient line.
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
+    blur.userInteractionEnabled = NO;
+    [self addSubview:blur];
+    _blur = blur;
     return self;
 }
 
@@ -229,7 +231,9 @@ static float dimFor(float light, BOOL lyricsUp) {
     _shade.frame = bounds;
     _clip.layer.frame = bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = bounds;
-    ((CAGradientLayer *)self.layer.mask).frame = bounds;
+    // The blur covers the bottom quarter of the clip, tall enough to melt into the background.
+    CGFloat blurHeight = bounds.size.height * 0.28;
+    _blur.frame = CGRectMake(0, bounds.size.height - blurHeight, bounds.size.width, blurHeight);
 }
 
 - (void)didMoveToWindow {
@@ -318,7 +322,8 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
         clip.layer.opacity = 1;
         [self dropLeaving];
     }
-    [self fadeTo:YES duration:kFadeIn];
+    // While the lyrics are up the clip stays hidden behind them; it shows when they close.
+    [self fadeTo:!_lyricsUp duration:kFadeIn];
     [CATransaction commit];
 }
 
@@ -347,7 +352,11 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
 
 - (void)setLyricsUp:(BOOL)up animated:(BOOL)animated {
     _lyricsUp = up;
-    fade(_dim, dimFor(_light, up), animated && self.window ? kDimChange : 0);
+    NSTimeInterval duration = animated && self.window ? kDimChange : 0;
+    fade(_dim, dimFor(_light, up), duration);
+    // On the lyrics page the clip steps aside so Fluid artwork is the only thing behind the words,
+    // the same look as Fluid artwork mode.
+    [self fadeTo:!up duration:duration];
 }
 
 @end
