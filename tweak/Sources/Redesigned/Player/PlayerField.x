@@ -108,8 +108,9 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
 #pragma mark - the player's own cover
 
 // The clip view fills the whole screen: its video band runs from the top down to where the title
-// begins, and below it the view's own black ground takes over — the way Apple Music's motion artwork
-// fades to dark under the controls instead of leaving the blurred cover there.
+// begins, dissolving at the bottom into the Fluid artwork behind it, with a light scrim over the
+// whole field for legibility — the way Apple Music and BitChord carry the cover's colours under
+// the controls rather than cutting to black.
 void SGRPlayerFitClipToCover(void) {
     SGRArtworkField *field = sg_field;
     UIView *plane = field.superview;

@@ -198,6 +198,15 @@ static float dimFor(float light, BOOL lyricsUp) {
     NSNull *off = NSNull.null;
     NSDictionary *still = @{@"bounds": off, @"position": off, @"frame": off, @"opacity": off, @"sublayers": off};
     UIColor *black = UIColor.blackColor;
+    // A light scrim over the whole field, behind the video, so the title and controls read against the
+    // Fluid artwork's colours without a hard seam where the video ends — the scrim is continuous under
+    // the opaque video and shows through only where the video dissolves, exactly as BitChord draws its
+    // mesh backdrop's scrim across the whole player.
+    _ground = [CAGradientLayer layer];
+    _ground.actions = still;
+    _ground.colors = @[(id)[black colorWithAlphaComponent:0.06].CGColor, (id)[black colorWithAlphaComponent:0.30].CGColor];
+    _ground.locations = @[@0, @1];
+    [self.layer addSublayer:_ground];
     // The video band (clip + dim + shade) lives in one container so a single gradient mask can dissolve
     // its bottom edge into the Fluid artwork behind it — the way BitChord and Apple Music fade a motion
     // cover out rather than blurring it.
@@ -219,13 +228,6 @@ static float dimFor(float light, BOOL lyricsUp) {
                       (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
     _shade.locations = @[@0.45, @0.75, @1];
     [_video addSublayer:_shade];
-    // Below the video the Fluid artwork is dimmed just enough for the title and controls to read, while
-    // the cover's colours still bleed through — the same ground the lyrics page sits on.
-    _ground = [CAGradientLayer layer];
-    _ground.actions = still;
-    _ground.colors = @[(id)[black colorWithAlphaComponent:0.06].CGColor, (id)[black colorWithAlphaComponent:0.30].CGColor];
-    _ground.locations = @[@0, @1];
-    [self.layer addSublayer:_ground];
     return self;
 }
 
@@ -264,8 +266,9 @@ static float dimFor(float light, BOOL lyricsUp) {
     mask.frame = _video.bounds;
     mask.startPoint = CGPointMake(0.5, 1 - 0.42);
     mask.endPoint = CGPointMake(0.5, 1);
-    // From the bottom of the video down, the Fluid artwork is dimmed just enough for the controls.
-    _ground.frame = CGRectMake(0, vh, bounds.size.width, bounds.size.height - vh);
+    // The scrim covers the whole field so the colour is continuous under the video and below it; the
+    // opaque video hides it up top and the dissolve lets it through at the seam.
+    _ground.frame = bounds;
 }
 
 - (void)didMoveToWindow {
