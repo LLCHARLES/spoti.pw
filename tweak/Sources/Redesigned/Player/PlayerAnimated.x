@@ -14,8 +14,8 @@ static const NSTimeInterval kFadeIn = 0.6, kFadeOut = 0.45, kDimChange = 0.3;
 // this, where white text keeps 4.5:1 (7:1 with Increase Contrast), as Fluid artwork holds its own; never
 // less than the least, and more under the lyrics. Over it, the shade Fluid artwork has under the controls.
 static const float kCeiling = 0.18f, kCeilingContrast = 0.09f, kUnknownLight = 0.35f;
-static const float kDimLeast = 0.1f, kDimLyrics = 0.15f, kDimMost = 0.8f;
-static const float kShadeMiddle = 0.18f, kShadeBottom = 0.4f;
+static const float kDimLeast = 0.0f, kDimLyrics = 0.15f, kDimMost = 0.3f;
+static const float kShadeMiddle = 0.0f, kShadeBottom = 0.15f;
 static const NSTimeInterval kReadyWithin = 5;
 
 static char kReadyContext, kViewKey;
@@ -245,10 +245,12 @@ static float dimFor(float light, BOOL lyricsUp) {
     _shade.frame = video;
     _clip.layer.frame = video;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = video;
-    // The live blur sits over the bottom of the video band, sampling it so the edge melts into the dark
-    // ground below. Faded in from nothing at its top to full blur at the bottom.
-    CGFloat blurHeight = vh * 0.32;
-    CGRect blurFrame = CGRectMake(0, vh - blurHeight, bounds.size.width, blurHeight);
+    // The live blur starts two-thirds down the video and runs past its bottom edge into the dark ground,
+    // sampling the video so the edge melts away instead of meeting black on a hard line. Faded in from
+    // nothing at its top to full blur at the bottom.
+    CGFloat blurTop = vh * 0.62;
+    CGFloat blurBottom = MIN(vh * 1.18, bounds.size.height);
+    CGRect blurFrame = CGRectMake(0, blurTop, bounds.size.width, blurBottom - blurTop);
     if (!CGRectEqualToRect(_blur.frame, blurFrame)) {
         _blur.frame = blurFrame;
         CAGradientLayer *mask = [CAGradientLayer layer];
