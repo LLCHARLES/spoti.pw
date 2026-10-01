@@ -13,9 +13,7 @@
 #import "Redesigned/Kit/SGRKit.h"
 #import "Player.h"
 
-// The cover fills Spotify's 354pt tilt view at full size; paused it shrinks a little, as the Music app's does.
-static const CGFloat kPlayScale = 1.0;
-static const CGFloat kPausedScale = 0.92, kPausedScaleReduceMotion = 0.95;
+static const CGFloat kPausedScale = 0.84, kPausedScaleReduceMotion = 0.92;
 // The bar's 40pt cover lives in a tilt view of its own; the player's is 354.
 static const CGFloat kCoverMinWidth = 200;
 
@@ -27,7 +25,7 @@ static NSMapTable<UIView *, UIView *> *sg_covers;
 
 static CGFloat currentScale(void) {
     SPTPlayerState *state = SGPlayerState();
-    if (!state.isPaused) return kPlayScale;
+    if (!state.isPaused) return 1;
     return SGRReduceMotion() ? kPausedScaleReduceMotion : kPausedScale;
 }
 
