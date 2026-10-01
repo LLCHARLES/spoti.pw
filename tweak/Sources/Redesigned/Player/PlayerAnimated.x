@@ -151,7 +151,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 
 // The clip over the field, with the dim and the shade that keep the player's text readable on it. The
 // view fades as a whole between the field and a clip; one clip replacing another fades in over it.
-@interface SGRPlayerAnimatedView : UIView
+@interface SGRPlayerAnimatedView ()
 @property (nonatomic, readonly) SGRPlayerClip *clip;   // shown or coming in
 @property (nonatomic, readonly) BOOL covers;           // a clip lies opaque over the whole field
 @property (nonatomic, readonly) BOOL shown;            // on screen or fading in
@@ -190,6 +190,9 @@ static float dimFor(float light, BOOL lyricsUp) {
     self.accessibilityElementsHidden = YES;
     self.clipsToBounds = YES;
     self.layer.opacity = 0;
+    // Below the video the player sits on a dark ground, the way Apple Music's motion artwork fades to
+    // black under the title and controls instead of showing the blurred cover.
+    self.backgroundColor = UIColor.blackColor;
     _leaving = [NSMutableArray array];
     NSNull *off = NSNull.null;
     NSDictionary *still = @{@"bounds": off, @"position": off, @"frame": off, @"opacity": off, @"sublayers": off};
@@ -209,9 +212,9 @@ static float dimFor(float light, BOOL lyricsUp) {
                       (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
     _shade.locations = @[@0.45, @0.75, @1];
     [self.layer addSublayer:_shade];
-    // A live blur over the bottom of the clip samples the video itself, so the edge melts into the
-    // blurred background and follows what is on screen instead of a fixed gradient line. Hidden until a
-    // clip actually shows: UIVisualEffectView does not vanish with its superview's opacity alone.
+    // A live blur over the bottom of the clip samples the video itself, so the edge melts into the dark
+    // ground and follows what is on screen instead of a fixed gradient line. Hidden until a clip shows:
+    // UIVisualEffectView does not vanish with its superview's opacity alone.
     UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
     blur.userInteractionEnabled = NO;
     blur.hidden = YES;
@@ -225,17 +228,35 @@ static float dimFor(float light, BOOL lyricsUp) {
     for (SGRPlayerClip *clip in _leaving) [clip stop];
 }
 
+- (void)setVideoHeight:(CGFloat)videoHeight {
+    if (fabs(_videoHeight - videoHeight) < 0.5) return;
+    _videoHeight = videoHeight;
+    [self setNeedsLayout];
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect bounds = self.bounds;
-    _clips.frame = bounds;
-    _dim.frame = bounds;
-    _shade.frame = bounds;
-    _clip.layer.frame = bounds;
-    for (SGRPlayerClip *clip in _leaving) clip.layer.frame = bounds;
-    // The blur covers the bottom quarter of the clip, tall enough to melt into the background.
-    CGFloat blurHeight = bounds.size.height * 0.28;
-    _blur.frame = CGRectMake(0, bounds.size.height - blurHeight, bounds.size.width, blurHeight);
+    // The video band sits at the top; everything below it is the dark ground.
+    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) : bounds.size.height;
+    CGRect video = CGRectMake(0, 0, bounds.size.width, vh);
+    _clips.frame = video;
+    _dim.frame = video;
+    _shade.frame = video;
+    _clip.layer.frame = video;
+    for (SGRPlayerClip *clip in _leaving) clip.layer.frame = video;
+    // The live blur sits over the bottom of the video band, sampling it so the edge melts into the dark
+    // ground below. Faded in from nothing at its top to full blur at the bottom.
+    CGFloat blurHeight = vh * 0.32;
+    CGRect blurFrame = CGRectMake(0, vh - blurHeight, bounds.size.width, blurHeight);
+    if (!CGRectEqualToRect(_blur.frame, blurFrame)) {
+        _blur.frame = blurFrame;
+        CAGradientLayer *mask = [CAGradientLayer layer];
+        mask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor];
+        mask.locations = @[@0, @1];
+        mask.frame = _blur.bounds;
+        _blur.layer.mask = mask;
+    }
 }
 
 - (void)didMoveToWindow {
@@ -294,7 +315,8 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     NSUInteger generation = ++_generation;
     if (_clip) [_leaving addObject:_clip];
     _clip = clip;
-    clip.layer.frame = self.bounds;
+    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, self.bounds.size.height) : self.bounds.size.height;
+    clip.layer.frame = CGRectMake(0, 0, self.bounds.size.width, vh);
     clip.layer.opacity = 0;
     [_clips addSublayer:clip.layer];
     [clip setPlaying:_playing];
@@ -597,9 +619,9 @@ static void update(void) {
 
 static void covered(BOOL covers) {
     SGRArtworkField *field = sg_field;
-    // The clip is a square over the cover now, not over the whole field, so Fluid artwork keeps drawing.
-    field.covered = NO;
-    say(@"Fluid artwork draws while the clip is a square over the cover");
+    // The clip view covers the whole screen while a clip shows, so Fluid artwork can freeze.
+    field.covered = covers;
+    say(@"Fluid artwork %@ while the clip %@", covers ? @"freezes" : @"draws", covers ? @"covers the screen" : @"clears");
 }
 
 // The cover goes as a clip fades in and comes back as it fades out, over the same time (PlayerArtwork.x).

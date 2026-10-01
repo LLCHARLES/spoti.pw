@@ -107,19 +107,18 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
 
 #pragma mark - the player's own cover
 
-// The animated clip fills the top of the screen down to where the title begins — the way Spotify's own
-// Canvas and Apple Music show the motion artwork — and fades into the blurred background below it.
+// The clip view fills the whole screen: its video band runs from the top down to where the title
+// begins, and below it the view's own black ground takes over — the way Apple Music's motion artwork
+// fades to dark under the controls instead of leaving the blurred cover there.
 void SGRPlayerFitClipToCover(void) {
     SGRArtworkField *field = sg_field;
     UIView *plane = field.superview;
     UIView *clip = plane ? SGRPlayerAnimatedViewIn(plane, field) : nil;
     if (!clip) return;
+    if (!CGRectEqualToRect(clip.frame, plane.bounds)) clip.frame = plane.bounds;
     CGRect area = SGRPlayerArtworkAreaIn(plane);
-    CGFloat width = plane.bounds.size.width;
-    CGFloat top = 0;
-    CGFloat bottom = CGRectIsNull(area) ? plane.bounds.size.height * 0.55 : CGRectGetMaxY(area);
-    CGRect frame = CGRectMake(0, top, width, bottom - top);
-    if (!CGRectEqualToRect(clip.frame, frame)) clip.frame = frame;
+    CGFloat videoBottom = CGRectIsNull(area) ? plane.bounds.size.height * 0.55 : CGRectGetMaxY(area);
+    [(SGRPlayerAnimatedView *)clip setVideoHeight:videoBottom];
 }
 
 // The picture of the cell under the middle of the list once it has settled: mid swipe the middle is

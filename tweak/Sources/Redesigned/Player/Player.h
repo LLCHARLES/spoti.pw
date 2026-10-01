@@ -75,10 +75,16 @@ void SGRPlayerMenuWatchMoreButton(UIView *button);
 
 // The field behind the player, nil until the player has laid out once (PlayerField.x).
 SGRArtworkField *SGRPlayerField(void);
-// Size the animated clip to the cover's square frame (PlayerField.x).
+// Size the animated clip view to the plane and set how tall its video band is (PlayerField.x).
 void SGRPlayerFitClipToCover(void);
 
 #pragma mark - Animated artwork (PlayerAnimated.x)
+
+// The view the clip plays in: a video band across the top of the screen over a dark ground. `videoHeight`
+// is how tall that band is; the rest is filled by the view's own black background.
+@interface SGRPlayerAnimatedView : UIView
+@property (nonatomic) CGFloat videoHeight;
+@end
 
 // The view the clip plays in, for PlayerField.x to keep over `field` in the background plane; nil while
 // the background is Fluid artwork.
