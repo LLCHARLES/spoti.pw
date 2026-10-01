@@ -210,9 +210,11 @@ static float dimFor(float light, BOOL lyricsUp) {
     _shade.locations = @[@0.45, @0.75, @1];
     [self.layer addSublayer:_shade];
     // A live blur over the bottom of the clip samples the video itself, so the edge melts into the
-    // blurred background and follows what is on screen instead of a fixed gradient line.
-    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
+    // blurred background and follows what is on screen instead of a fixed gradient line. Hidden until a
+    // clip actually shows: UIVisualEffectView does not vanish with its superview's opacity alone.
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
     blur.userInteractionEnabled = NO;
+    blur.hidden = YES;
     [self addSubview:blur];
     _blur = blur;
     return self;
@@ -272,6 +274,15 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     float to = shown ? 1 : 0;
     if (fabsf(shownOpacity(self.layer) - to) < 0.001f) duration = 0;
     fade(self.layer, to, duration);
+    // UIVisualEffectView does not reliably disappear with its superview's opacity; pull the effect and
+    // hide the blur outright so it cannot bleed into the cover when no clip is up.
+    if (!shown) {
+        _blur.effect = nil;
+        _blur.hidden = YES;
+    } else if (_blur.hidden) {
+        _blur.hidden = NO;
+        _blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
+    }
     _fadeEnds = CACurrentMediaTime() + duration;
     if (shown == _shown) return;
     _shown = shown;
