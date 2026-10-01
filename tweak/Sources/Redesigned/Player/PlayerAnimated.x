@@ -173,6 +173,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
     CALayer *_clips;
     CALayer *_dim;
     CAGradientLayer *_ground;   // the full-screen legibility scrim over the Fluid artwork
+    UIVisualEffectView *_blur;   // blurs the video's bottom edge so its colours bleed into the field
     NSMutableArray<SGRPlayerClip *> *_leaving;   // under the one coming in until it is in
     BOOL _playing, _lyricsUp;
     float _light;   // the shown clip's
@@ -224,6 +225,13 @@ static float dimFor(float light, BOOL lyricsUp) {
     _light = kUnknownLight;
     _dim.opacity = dimFor(_light, NO);
     [_video addSublayer:_dim];
+    // A blur over the video's dissolve region samples the clip itself, so its colours bleed down into
+    // the Fluid artwork rather than stopping on the alpha edge — the same trick LyricsBlossom and
+    // Apple Music use to marry a motion cover to its colour field.
+    _blur = [[UIVisualEffectView alloc] initWithEffect:nil];
+    _blur.userInteractionEnabled = NO;
+    _blur.hidden = YES;
+    [self addSubview:_blur];
     return self;
 }
 
@@ -250,8 +258,9 @@ static float dimFor(float light, BOOL lyricsUp) {
     _clip.layer.frame = _video.bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
     // The bottom of the video band dissolves to transparent so the Fluid artwork bleeds through — a
-    // vertical gradient mask, opaque over the top 58% and fading out over the bottom 42% (BitChord's
-    // HERO_FADE_FRACTION).
+    // vertical gradient mask, opaque over the top 40% and fading out over the bottom 60%. A wider
+    // dissolve than BitChord's 42 % because our field is a live cover rather than a matched mesh, so
+    // the colours need more room to blend.
     CAGradientLayer *mask = (CAGradientLayer *)_video.mask;
     if (![mask isKindOfClass:CAGradientLayer.class]) {
         mask = [CAGradientLayer layer];
@@ -259,8 +268,19 @@ static float dimFor(float light, BOOL lyricsUp) {
         _video.mask = mask;
     }
     mask.frame = _video.bounds;
-    mask.startPoint = CGPointMake(0.5, 1 - 0.42);
+    mask.startPoint = CGPointMake(0.5, 0.40);
     mask.endPoint = CGPointMake(0.5, 1);
+    // The blur covers the same dissolve region, strongest at the bottom where the clip meets the
+    // field, so the video's own colours smear into the Fluid artwork instead of ending on a line.
+    CGRect blurFrame = CGRectMake(0, vh * 0.40, bounds.size.width, vh * 0.60);
+    if (!CGRectEqualToRect(_blur.frame, blurFrame)) {
+        _blur.frame = blurFrame;
+        CAGradientLayer *blurMask = [CAGradientLayer layer];
+        blurMask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor];
+        blurMask.locations = @[@0, @1];
+        blurMask.frame = _blur.bounds;
+        _blur.layer.mask = blurMask;
+    }
     // The scrim covers the whole field so the colour is continuous under the video and below it; the
     // opaque video hides it up top and the dissolve lets it through at the seam.
     _ground.frame = bounds;
@@ -302,6 +322,15 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     float to = shown ? 1 : 0;
     if (fabsf(shownOpacity(self.layer) - to) < 0.001f) duration = 0;
     fade(self.layer, to, duration);
+    // UIVisualEffectView does not follow its superview's opacity; pull the effect and hide it when the
+    // clip is gone so it cannot blur the cover underneath.
+    if (!shown) {
+        _blur.effect = nil;
+        _blur.hidden = YES;
+    } else if (_blur.hidden) {
+        _blur.hidden = NO;
+        _blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular];
+    }
     _fadeEnds = CACurrentMediaTime() + duration;
     if (shown == _shown) return;
     _shown = shown;
