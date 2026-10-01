@@ -167,11 +167,11 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 @end
 
 @implementation SGRPlayerAnimatedView {
+    CALayer *_video;   // container for the clip, dim and shade; masked to fade out at the bottom
     CALayer *_clips;
     CALayer *_dim;
     CAGradientLayer *_shade;
     CAGradientLayer *_ground;   // darkens the Fluid artwork below the video
-    UIVisualEffectView *_blur;   // the live blur over the bottom edge
     NSMutableArray<SGRPlayerClip *> *_leaving;   // under the one coming in until it is in
     BOOL _playing, _lyricsUp;
     float _light;   // the shown clip's
@@ -197,37 +197,35 @@ static float dimFor(float light, BOOL lyricsUp) {
     _leaving = [NSMutableArray array];
     NSNull *off = NSNull.null;
     NSDictionary *still = @{@"bounds": off, @"position": off, @"frame": off, @"opacity": off, @"sublayers": off};
+    UIColor *black = UIColor.blackColor;
+    // The video band (clip + dim + shade) lives in one container so a single gradient mask can dissolve
+    // its bottom edge into the Fluid artwork behind it — the way BitChord and Apple Music fade a motion
+    // cover out rather than blurring it.
+    _video = [CALayer layer];
+    _video.actions = still;
+    [self.layer addSublayer:_video];
     _clips = [CALayer layer];
     _clips.actions = still;
-    [self.layer addSublayer:_clips];
+    [_video addSublayer:_clips];
     _dim = [CALayer layer];
     _dim.actions = still;
-    _dim.backgroundColor = UIColor.blackColor.CGColor;
+    _dim.backgroundColor = black.CGColor;
     _light = kUnknownLight;
     _dim.opacity = dimFor(_light, NO);
-    [self.layer addSublayer:_dim];
+    [_video addSublayer:_dim];
     _shade = [CAGradientLayer layer];
     _shade.actions = still;
-    UIColor *black = UIColor.blackColor;
     _shade.colors = @[(id)[black colorWithAlphaComponent:0].CGColor, (id)[black colorWithAlphaComponent:kShadeMiddle].CGColor,
                       (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
     _shade.locations = @[@0.45, @0.75, @1];
-    [self.layer addSublayer:_shade];
-    // Below the video the Fluid artwork is dimmed towards black so the title and controls read, but its
-    // colours still bleed through — the same ground the lyrics page sits on.
+    [_video addSublayer:_shade];
+    // Below the video the Fluid artwork is dimmed just enough for the title and controls to read, while
+    // the cover's colours still bleed through — the same ground the lyrics page sits on.
     _ground = [CAGradientLayer layer];
     _ground.actions = still;
-    _ground.colors = @[(id)[black colorWithAlphaComponent:0.35].CGColor, (id)[black colorWithAlphaComponent:0.92].CGColor];
+    _ground.colors = @[(id)[black colorWithAlphaComponent:0.06].CGColor, (id)[black colorWithAlphaComponent:0.30].CGColor];
     _ground.locations = @[@0, @1];
     [self.layer addSublayer:_ground];
-    // A live blur over the bottom of the clip samples the video itself, so the edge melts into the dark
-    // ground and follows what is on screen instead of a fixed gradient line. Hidden until a clip shows:
-    // UIVisualEffectView does not vanish with its superview's opacity alone.
-    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:nil];
-    blur.userInteractionEnabled = NO;
-    blur.hidden = YES;
-    [self addSubview:blur];
-    _blur = blur;
     return self;
 }
 
@@ -248,26 +246,26 @@ static float dimFor(float light, BOOL lyricsUp) {
     // The video band sits at the top; below it the Fluid artwork shows through, dimmed by `_ground`.
     CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) : bounds.size.height;
     CGRect video = CGRectMake(0, 0, bounds.size.width, vh);
-    _clips.frame = video;
-    _dim.frame = video;
-    _shade.frame = video;
-    _clip.layer.frame = video;
-    for (SGRPlayerClip *clip in _leaving) clip.layer.frame = video;
-    // From the bottom of the video down, the Fluid artwork is dimmed towards black for the controls.
-    _ground.frame = CGRectMake(0, vh, bounds.size.width, bounds.size.height - vh);
-    // The live blur starts two-thirds down the video and runs past its bottom edge into the dimmed Fluid
-    // artwork, sampling the video so the edge melts away instead of stopping on a hard line.
-    CGFloat blurTop = vh * 0.62;
-    CGFloat blurBottom = MIN(vh * 1.18, bounds.size.height);
-    CGRect blurFrame = CGRectMake(0, blurTop, bounds.size.width, blurBottom - blurTop);
-    if (!CGRectEqualToRect(_blur.frame, blurFrame)) {
-        _blur.frame = blurFrame;
-        CAGradientLayer *mask = [CAGradientLayer layer];
-        mask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor];
-        mask.locations = @[@0, @1];
-        mask.frame = _blur.bounds;
-        _blur.layer.mask = mask;
+    _video.frame = video;
+    _clips.frame = _video.bounds;
+    _dim.frame = _video.bounds;
+    _shade.frame = _video.bounds;
+    _clip.layer.frame = _video.bounds;
+    for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
+    // The bottom of the video band dissolves to transparent so the Fluid artwork bleeds through — a
+    // vertical gradient mask, opaque over the top 58% and fading out over the bottom 42% (BitChord's
+    // HERO_FADE_FRACTION).
+    CAGradientLayer *mask = (CAGradientLayer *)_video.mask;
+    if (![mask isKindOfClass:CAGradientLayer.class]) {
+        mask = [CAGradientLayer layer];
+        mask.colors = @[(id)UIColor.blackColor.CGColor, (id)UIColor.clearColor.CGColor];
+        _video.mask = mask;
     }
+    mask.frame = _video.bounds;
+    mask.startPoint = CGPointMake(0.5, 1 - 0.42);
+    mask.endPoint = CGPointMake(0.5, 1);
+    // From the bottom of the video down, the Fluid artwork is dimmed just enough for the controls.
+    _ground.frame = CGRectMake(0, vh, bounds.size.width, bounds.size.height - vh);
 }
 
 - (void)didMoveToWindow {
@@ -306,15 +304,6 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     float to = shown ? 1 : 0;
     if (fabsf(shownOpacity(self.layer) - to) < 0.001f) duration = 0;
     fade(self.layer, to, duration);
-    // UIVisualEffectView does not reliably disappear with its superview's opacity; pull the effect and
-    // hide the blur outright so it cannot bleed into the cover when no clip is up.
-    if (!shown) {
-        _blur.effect = nil;
-        _blur.hidden = YES;
-    } else if (_blur.hidden) {
-        _blur.hidden = NO;
-        _blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
-    }
     _fadeEnds = CACurrentMediaTime() + duration;
     if (shown == _shown) return;
     _shown = shown;
