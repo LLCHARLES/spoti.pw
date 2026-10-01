@@ -170,6 +170,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
     CALayer *_clips;
     CALayer *_dim;
     CAGradientLayer *_shade;
+    CAGradientLayer *_ground;   // darkens the Fluid artwork below the video
     UIVisualEffectView *_blur;   // the live blur over the bottom edge
     NSMutableArray<SGRPlayerClip *> *_leaving;   // under the one coming in until it is in
     BOOL _playing, _lyricsUp;
@@ -190,9 +191,9 @@ static float dimFor(float light, BOOL lyricsUp) {
     self.accessibilityElementsHidden = YES;
     self.clipsToBounds = YES;
     self.layer.opacity = 0;
-    // Below the video the player sits on a dark ground, the way Apple Music's motion artwork fades to
-    // black under the title and controls instead of showing the blurred cover.
-    self.backgroundColor = UIColor.blackColor;
+    // Below the video the Fluid artwork shows through, blurred and darkened, so the background keeps the
+    // cover's colours the way the lyrics page's background does — not a flat black.
+    self.backgroundColor = UIColor.clearColor;
     _leaving = [NSMutableArray array];
     NSNull *off = NSNull.null;
     NSDictionary *still = @{@"bounds": off, @"position": off, @"frame": off, @"opacity": off, @"sublayers": off};
@@ -212,6 +213,13 @@ static float dimFor(float light, BOOL lyricsUp) {
                       (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
     _shade.locations = @[@0.45, @0.75, @1];
     [self.layer addSublayer:_shade];
+    // Below the video the Fluid artwork is dimmed towards black so the title and controls read, but its
+    // colours still bleed through — the same ground the lyrics page sits on.
+    _ground = [CAGradientLayer layer];
+    _ground.actions = still;
+    _ground.colors = @[(id)[black colorWithAlphaComponent:0.35].CGColor, (id)[black colorWithAlphaComponent:0.92].CGColor];
+    _ground.locations = @[@0, @1];
+    [self.layer addSublayer:_ground];
     // A live blur over the bottom of the clip samples the video itself, so the edge melts into the dark
     // ground and follows what is on screen instead of a fixed gradient line. Hidden until a clip shows:
     // UIVisualEffectView does not vanish with its superview's opacity alone.
@@ -237,7 +245,7 @@ static float dimFor(float light, BOOL lyricsUp) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect bounds = self.bounds;
-    // The video band sits at the top; everything below it is the dark ground.
+    // The video band sits at the top; below it the Fluid artwork shows through, dimmed by `_ground`.
     CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) : bounds.size.height;
     CGRect video = CGRectMake(0, 0, bounds.size.width, vh);
     _clips.frame = video;
@@ -245,9 +253,10 @@ static float dimFor(float light, BOOL lyricsUp) {
     _shade.frame = video;
     _clip.layer.frame = video;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = video;
-    // The live blur starts two-thirds down the video and runs past its bottom edge into the dark ground,
-    // sampling the video so the edge melts away instead of meeting black on a hard line. Faded in from
-    // nothing at its top to full blur at the bottom.
+    // From the bottom of the video down, the Fluid artwork is dimmed towards black for the controls.
+    _ground.frame = CGRectMake(0, vh, bounds.size.width, bounds.size.height - vh);
+    // The live blur starts two-thirds down the video and runs past its bottom edge into the dimmed Fluid
+    // artwork, sampling the video so the edge melts away instead of stopping on a hard line.
     CGFloat blurTop = vh * 0.62;
     CGFloat blurBottom = MIN(vh * 1.18, bounds.size.height);
     CGRect blurFrame = CGRectMake(0, blurTop, bounds.size.width, blurBottom - blurTop);
@@ -621,9 +630,10 @@ static void update(void) {
 
 static void covered(BOOL covers) {
     SGRArtworkField *field = sg_field;
-    // The clip view covers the whole screen while a clip shows, so Fluid artwork can freeze.
-    field.covered = covers;
-    say(@"Fluid artwork %@ while the clip %@", covers ? @"freezes" : @"draws", covers ? @"covers the screen" : @"clears");
+    // The video only covers the top of the screen; below it Fluid artwork is the background, so it keeps
+    // drawing and the colours stay matched to the cover, like the lyrics page's background.
+    field.covered = NO;
+    say(@"Fluid artwork draws while the clip sits over the top of the screen");
 }
 
 // The cover goes as a clip fades in and comes back as it fades out, over the same time (PlayerArtwork.x).
