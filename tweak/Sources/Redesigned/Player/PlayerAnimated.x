@@ -249,29 +249,33 @@ static float dimFor(float light, BOOL lyricsUp) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect bounds = self.bounds;
-    // AMLL-style: the clip fills the whole screen. The top (the artwork area) plays the video sharp;
-    // the rest is the same video, heavily blurred, so the background is the clip's own colours — one
-    // continuous field, no seam between "video" and "background".
+    // AMLL-style: the clip fills the whole screen. The artwork area plays it sharp; below that the
+    // same clip is blurred so the background is the clip's own colours — one continuous field.
     _video.frame = bounds;
-    _video.mask = nil;   // the blur (not an alpha fade) now carries the transition
+    _video.mask = nil;
     _clips.frame = _video.bounds;
     _dim.frame = _video.bounds;
     _clip.layer.frame = _video.bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
-    // The blur starts where the artwork area ends and ramps in towards the bottom; above it the clip
-    // is sharp, below it the clip becomes the soft colour field the controls sit on.
-    CGFloat blurTop = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) * 0.5 : bounds.size.height * 0.5;
-    CGRect blurFrame = CGRectMake(0, blurTop, bounds.size.width, bounds.size.height - blurTop);
-    if (!CGRectEqualToRect(_blur.frame, blurFrame)) {
-        _blur.frame = blurFrame;
-        CAGradientLayer *blurMask = [CAGradientLayer layer];
-        blurMask.colors = @[(id)UIColor.clearColor.CGColor, (id)UIColor.blackColor.CGColor];
-        blurMask.locations = @[@0, @1];
-        blurMask.frame = _blur.bounds;
+    // The blur covers the whole screen; a gradient mask keeps the top (artwork area) sharp and ramps
+    // the blur in over the lower half of the artwork area, so there is no rectangular edge.
+    _blur.frame = bounds;
+    CAGradientLayer *blurMask = (CAGradientLayer *)_blur.layer.mask;
+    if (![blurMask isKindOfClass:CAGradientLayer.class]) {
+        blurMask = [CAGradientLayer layer];
         _blur.layer.mask = blurMask;
     }
-    // A light scrim over the whole field gives the title and controls contrast without flattening the
-    // clip's colours — same role as AMLL's brightness/saturation pass.
+    CGFloat h = bounds.size.height;
+    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, h) : h;
+    blurMask.colors = @[
+        (id)UIColor.clearColor.CGColor,   // 0 … top of artwork: sharp
+        (id)UIColor.clearColor.CGColor,   // up to 50 % of the artwork area: still sharp
+        (id)UIColor.blackColor.CGColor,   // past the artwork area: fully blurred
+        (id)UIColor.blackColor.CGColor,   // all the way down: fully blurred
+    ];
+    blurMask.locations = @[@0, @(vh * 0.5 / h), @(vh * 1.15 / h), @1];
+    blurMask.frame = bounds;
+    // Light scrim for contrast on the title and controls — AMLL's brightness pass does the same job.
     _ground.frame = bounds;
 }
 
