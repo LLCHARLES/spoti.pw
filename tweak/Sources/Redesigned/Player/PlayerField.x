@@ -89,8 +89,10 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
     UIView *clip = SGRPlayerAnimatedViewIn(plane, field);
     keepOnTop(plane, clip ? @[field, clip] : @[field]);
     if (!CGRectEqualToRect(field.frame, plane.bounds)) field.frame = plane.bounds;
-    // The animated cover sits in the cover's own square, not over the whole screen.
-    SGRPlayerFitClipToCover();
+    // The screen the plane starts with; the pull above it shows the field.
+    CGFloat height = plane.window.bounds.size.height ?: UIScreen.mainScreen.bounds.size.height;
+    CGRect screen = CGRectMake(0, 0, plane.bounds.size.width, height);
+    if (clip && !CGRectEqualToRect(clip.frame, screen)) clip.frame = screen;
 }
 
 - (void)backgroundViewModel:(id)model didChangeColor:(id)color playerState:(id)state {
@@ -106,21 +108,6 @@ static void keepOnTop(UIView *plane, NSArray<UIView *> *views) {
 %end
 
 #pragma mark - the player's own cover
-
-// The clip view fills the whole screen: its video band runs from the top down to where the title
-// begins, dissolving at the bottom into the Fluid artwork behind it, with a light scrim over the
-// whole field for legibility — the way Apple Music and BitChord carry the cover's colours under
-// the controls rather than cutting to black.
-void SGRPlayerFitClipToCover(void) {
-    SGRArtworkField *field = sg_field;
-    UIView *plane = field.superview;
-    UIView *clip = plane ? SGRPlayerAnimatedViewIn(plane, field) : nil;
-    if (!clip) return;
-    if (!CGRectEqualToRect(clip.frame, plane.bounds)) clip.frame = plane.bounds;
-    CGRect area = SGRPlayerArtworkAreaIn(plane);
-    CGFloat videoBottom = CGRectIsNull(area) ? plane.bounds.size.height * 0.55 : CGRectGetMaxY(area);
-    [(SGRPlayerAnimatedView *)clip setVideoHeight:videoBottom];
-}
 
 // The picture of the cell under the middle of the list once it has settled: mid swipe the middle is
 // between two tracks.
@@ -157,7 +144,6 @@ static void publishCover(void) {
     %orig;
     sg_coverList = (UIScrollView *)self;
     publishCover();
-    SGRPlayerFitClipToCover();
 }
 %end
 
@@ -176,10 +162,7 @@ static void publishCover(void) {
     if (!track || [track isEqualToString:_track]) return;
     _track = track;
     for (NSNumber *delay in @[@0.3, @1, @2.5]) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            publishCover();
-            SGRPlayerFitClipToCover();
-        });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ publishCover(); });
     }
 }
 

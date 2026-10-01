@@ -7,7 +7,7 @@
 // have it to themselves while they play untouched, until a touch brings the controls back.
 //
 //     PlayerField.x      the switch's flags and rows, the field in the background plane, the cover it reads
-//     PlayerAnimated.x   Animated artwork: the Canvas or Apple Music's cover looping over the top of the screen
+//     PlayerAnimated.x   Animated artwork: the Canvas or Apple Music's cover looping over the field
 //     PlayerBackgroundSettings.m  what moves behind the player, and Fluid artwork's sliders under a preview
 //     PlayerArtwork.x    the cover's corners, shadow and paused shrink, the lyric preview under it hidden,
 //                        and every cover gone while an Animated artwork clip shows
@@ -47,7 +47,7 @@
 #define SGRKeyPlayerMotionWas @"spotifyglass.redesign.player.movingBackground"
 typedef NS_ENUM(NSInteger, SGRPlayerBackground) {
     SGRPlayerBackgroundFluid,      // the artwork itself warped (SGRWarp.h)
-    SGRPlayerBackgroundAnimated,   // a clip over the top of the screen, fading into Fluid artwork below (PlayerAnimated.x)
+    SGRPlayerBackgroundAnimated,   // a clip over Fluid artwork, where the track has one (PlayerAnimated.x)
 };
 SGRPlayerBackground SGRPlayerBackgroundStyle(void);
 // Posted when the choice changes, so the player follows without a restart.
@@ -75,16 +75,8 @@ void SGRPlayerMenuWatchMoreButton(UIView *button);
 
 // The field behind the player, nil until the player has laid out once (PlayerField.x).
 SGRArtworkField *SGRPlayerField(void);
-// Size the animated clip view to the plane and set how tall its video band is (PlayerField.x).
-void SGRPlayerFitClipToCover(void);
 
 #pragma mark - Animated artwork (PlayerAnimated.x)
-
-// The view the clip plays in: a video band across the top of the screen over a dark ground. `videoHeight`
-// is how tall that band is; the rest is filled by the view's own black background.
-@interface SGRPlayerAnimatedView : UIView
-@property (nonatomic) CGFloat videoHeight;
-@end
 
 // The view the clip plays in, for PlayerField.x to keep over `field` in the background plane; nil while
 // the background is Fluid artwork.

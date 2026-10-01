@@ -12,12 +12,9 @@
 static const NSTimeInterval kFadeIn = 0.6, kFadeOut = 0.45, kDimChange = 0.3;
 // The dim holds the brighter part of a clip (the 75th percentile of a few frames' linear luminance) under
 // this, where white text keeps 4.5:1 (7:1 with Increase Contrast), as Fluid artwork holds its own; never
-// less than the least, and more under the lyrics. Over it, the shade Fluid artwork has under the controls.
+// less than the least, and more under the lyrics. The clip dissolves into its own dark colour below.
 static const float kCeiling = 0.18f, kCeilingContrast = 0.09f, kUnknownLight = 0.35f;
-// The full-screen ground scrim carries most of the legibility darkening, so the clip's own dim stays
-// light — just enough to keep a very bright clip from blowing out the status bar, never so much that
-// the bottom of the video reads darker than the ground below it (which was the seam).
-static const float kDimLeast = 0.0f, kDimLyrics = 0.10f, kDimMost = 0.12f;
+static const float kDimLeast = 0.1f, kDimLyrics = 0.15f, kDimMost = 0.8f;
 static const NSTimeInterval kReadyWithin = 5;
 
 static char kReadyContext, kViewKey;
@@ -26,14 +23,16 @@ static char kReadyContext, kViewKey;
 
 #pragma mark - a clip
 
-// The brighter part of the clip, read once off the main thread from three small frames; `done` on the main
-// queue, with kUnknownLight when none could be read.
-static void readLight(NSURL *file, void (^done)(float light)) {
+// Read the light and bottom-edge colour together from three small frames. The footer keeps that colour
+// for the whole clip, so its controls never sit over moving detail or flicker with the video.
+// `done` is on the main queue; unreadable frames leave the neutral field and kUnknownLight.
+static void readLight(NSURL *file, void (^done)(float light, UIColor *edgeColor)) {
     AVAssetImageGenerator *generator = [AVAssetImageGenerator assetImageGeneratorWithAsset:[AVURLAsset URLAssetWithURL:file options:nil]];
     generator.appliesPreferredTrackTransform = YES;
     generator.maximumSize = CGSizeMake(48, 48);
     NSMutableData *lights = [NSMutableData data];
     __block NSUInteger pending = 3;
+    __block double red = 0, green = 0, blue = 0, samples = 0;
     for (NSNumber *second in @[@0, @1, @2]) {
         [generator generateCGImageAsynchronouslyForTime:CMTimeMakeWithSeconds(second.doubleValue, 600) completionHandler:^(CGImageRef frame, CMTime actual, NSError *error) {
             (void)generator;
@@ -51,7 +50,16 @@ static void readLight(NSURL *file, void (^done)(float light)) {
                 read[i] = 0.2126f * c[0] + 0.7152f * c[1] + 0.0722f * c[2];
             }
             @synchronized (lights) {
-                if (context) [lights appendBytes:read length:sizeof read];
+                if (context) {
+                    [lights appendBytes:read length:sizeof read];
+                    // Bitmap rows run top to bottom, as in SGRPalette's edge sampling.
+                    for (int i = kSide * (kSide * 3 / 4); i < kSide * kSide; i++) {
+                        red += px[i * 4];
+                        green += px[i * 4 + 1];
+                        blue += px[i * 4 + 2];
+                        samples += 255;
+                    }
+                }
                 if (--pending) return;
             }
             NSUInteger count = lights.length / sizeof(float);
@@ -64,7 +72,10 @@ static void readLight(NSURL *file, void (^done)(float light)) {
                 });
                 light = values[count * 3 / 4];
             }
-            dispatch_async(dispatch_get_main_queue(), ^{ done(light); });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                UIColor *edge = samples ? [UIColor colorWithRed:red / samples green:green / samples blue:blue / samples alpha:1] : nil;
+                done(light, edge);
+            });
         }];
     }
 }
@@ -73,6 +84,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 @property (nonatomic, readonly) NSURL *file;
 @property (nonatomic, readonly) AVPlayerLayer *layer;
 @property (nonatomic, readonly) float light;   // negative until read
+@property (nonatomic, readonly) UIColor *edgeColor;
 // Once, on the main queue, when its first frame can be drawn and its light has been read.
 @property (nonatomic, copy) void (^ready)(SGRPlayerClip *clip);
 - (instancetype)initWithFile:(NSURL *)file;
@@ -104,10 +116,11 @@ static void readLight(NSURL *file, void (^done)(float light)) {
     _observing = YES;
     _light = -1;
     __weak SGRPlayerClip *weakSelf = self;
-    readLight(file, ^(float light) {
+    readLight(file, ^(float light, UIColor *edgeColor) {
         SGRPlayerClip *clip = weakSelf;
         if (!clip) return;
         clip->_light = light;
+        clip->_edgeColor = edgeColor;
         [clip checkReady];
     });
     return self;
@@ -153,7 +166,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 
 // The clip over the field, with the dim and the shade that keep the player's text readable on it. The
 // view fades as a whole between the field and a clip; one clip replacing another fades in over it.
-@interface SGRPlayerAnimatedView ()
+@interface SGRPlayerAnimatedView : UIView
 @property (nonatomic, readonly) SGRPlayerClip *clip;   // shown or coming in
 @property (nonatomic, readonly) BOOL covers;           // a clip lies opaque over the whole field
 @property (nonatomic, readonly) BOOL shown;            // on screen or fading in
@@ -169,15 +182,15 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 @end
 
 @implementation SGRPlayerAnimatedView {
-    CALayer *_video;   // container for the clip and a light dim; masked to fade out at the bottom
     CALayer *_clips;
     CALayer *_dim;
-    CAGradientLayer *_ground;   // the full-screen legibility scrim over the Fluid artwork
-    UIVisualEffectView *_blur;   // blurs the video's bottom edge so its colours bleed into the field
+    CAGradientLayer *_shade;
     NSMutableArray<SGRPlayerClip *> *_leaving;   // under the one coming in until it is in
-    BOOL _playing, _lyricsUp;
+    BOOL _playing, _lyricsUp, _hasFrame;
     float _light;   // the shown clip's
-    NSUInteger _generation;
+    UIColor *_edgeColor;   // also the shown clip's, while its replacement is still loading
+    CGFloat _controlsTop;
+    NSUInteger _generation, _visibilityGeneration;
 }
 
 // Blending black at `dim` over sRGB scales linear light by about (1 - dim)^2.2.
@@ -193,45 +206,23 @@ static float dimFor(float light, BOOL lyricsUp) {
     self.accessibilityElementsHidden = YES;
     self.clipsToBounds = YES;
     self.layer.opacity = 0;
-    // Below the video the Fluid artwork shows through, blurred and darkened, so the background keeps the
-    // cover's colours the way the lyrics page's background does — not a flat black.
-    self.backgroundColor = UIColor.clearColor;
     _leaving = [NSMutableArray array];
     NSNull *off = NSNull.null;
-    NSDictionary *still = @{@"bounds": off, @"position": off, @"frame": off, @"opacity": off, @"sublayers": off};
-    UIColor *black = UIColor.blackColor;
-    // A light scrim over the whole field, behind the video, so the title and controls read against the
-    // Fluid artwork's colours without a hard seam where the video ends — the scrim is continuous under
-    // the opaque video and shows through only where the video dissolves, exactly as BitChord draws its
-    // mesh backdrop's scrim across the whole player.
-    _ground = [CAGradientLayer layer];
-    _ground.actions = still;
-    _ground.colors = @[(id)[black colorWithAlphaComponent:0.06].CGColor, (id)[black colorWithAlphaComponent:0.30].CGColor];
-    _ground.locations = @[@0, @1];
-    [self.layer addSublayer:_ground];
-    // The video band (clip + a light dim) lives in one container so a single gradient mask can dissolve
-    // its bottom edge into the Fluid artwork behind it — the way BitChord, LyricsBlossom and Apple Music
-    // fade a motion cover out rather than blurring it. The full-screen ground scrim below does the
-    // legibility darkening uniformly, so there is no seam where the video ends.
-    _video = [CALayer layer];
-    _video.actions = still;
-    [self.layer addSublayer:_video];
+    NSDictionary *still = @{@"bounds": off, @"position": off, @"frame": off, @"opacity": off,
+                            @"sublayers": off, @"colors": off, @"locations": off};
     _clips = [CALayer layer];
     _clips.actions = still;
-    [_video addSublayer:_clips];
+    [self.layer addSublayer:_clips];
     _dim = [CALayer layer];
     _dim.actions = still;
-    _dim.backgroundColor = black.CGColor;
+    _dim.backgroundColor = UIColor.blackColor.CGColor;
     _light = kUnknownLight;
     _dim.opacity = dimFor(_light, NO);
-    [_video addSublayer:_dim];
-    // A blur over the video's dissolve region samples the clip itself, so its colours bleed down into
-    // the Fluid artwork rather than stopping on the alpha edge — the same trick LyricsBlossom and
-    // Apple Music use to marry a motion cover to its colour field.
-    _blur = [[UIVisualEffectView alloc] initWithEffect:nil];
-    _blur.userInteractionEnabled = NO;
-    _blur.hidden = YES;
-    [self addSubview:_blur];
+    [self.layer addSublayer:_dim];
+    _shade = [CAGradientLayer layer];
+    _shade.actions = still;
+    [self.layer addSublayer:_shade];
+    [self updateShade:NO];
     return self;
 }
 
@@ -240,47 +231,28 @@ static float dimFor(float light, BOOL lyricsUp) {
     for (SGRPlayerClip *clip in _leaving) [clip stop];
 }
 
-- (void)setVideoHeight:(CGFloat)videoHeight {
-    if (fabs(_videoHeight - videoHeight) < 0.5) return;
-    _videoHeight = videoHeight;
-    [self setNeedsLayout];
-}
-
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect bounds = self.bounds;
-    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) : bounds.size.height;
-    // The clip lives only in the artwork area so resizeAspectFill does not crop its content. Below it
-    // the Fluid artwork (the field) carries on, following the cover's colours as it does everywhere
-    // else in the player.
-    _video.frame = CGRectMake(0, 0, bounds.size.width, vh);
-    _video.mask = nil;
-    _clips.frame = _video.bounds;
-    _dim.frame = _video.bounds;
-    _clip.layer.frame = _video.bounds;
-    for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
-    // The blur ramps in over the lower half of the artwork area and stays on down to the bottom of the
-    // screen. It smears the clip's bottom edge into the Fluid artwork so the two meet on a colour
-    // field rather than a line — no hard rectangle, and no cropping because the blur sits over the
-    // field, not over a stretched copy of the clip.
-    _blur.frame = bounds;
-    CAGradientLayer *blurMask = (CAGradientLayer *)_blur.layer.mask;
-    if (![blurMask isKindOfClass:CAGradientLayer.class]) {
-        blurMask = [CAGradientLayer layer];
-        _blur.layer.mask = blurMask;
+    _clips.frame = bounds;
+    _dim.frame = bounds;
+    _shade.frame = bounds;
+    // The artwork band ends at the information row. Anchor the dissolve there, rather than to one
+    // phone's screen height. Keep that anchor while the lyrics move the cover into their thumbnail.
+    CGRect area = SGRPlayerArtworkAreaIn(self);
+    if (!_lyricsUp && !SGRPlayerIsTransitioning() && !CGRectIsNull(area) && !CGRectIsEmpty(area))
+        _controlsTop = CGRectGetMaxY(area);
+    CGFloat height = bounds.size.height;
+    if (height > 0) {
+        CGFloat end = MIN(height, MAX(height * 0.4, _controlsTop > 0 ? _controlsTop : height * 0.64));
+        CGFloat start = MAX(0, end - MIN(220, height * 0.25));
+        CGFloat span = end - start;
+        _shade.locations = @[@(start / height), @((start + span * 0.35) / height),
+                             @((start + span * 0.72) / height), @(end / height),
+                             @(MIN(1, end / height + 0.14)), @1];
     }
-    CGFloat h = bounds.size.height;
-    blurMask.colors = @[
-        (id)UIColor.clearColor.CGColor,   // top half of the artwork: sharp clip
-        (id)UIColor.clearColor.CGColor,
-        (id)UIColor.blackColor.CGColor,   // past the artwork: fully blurred field
-        (id)UIColor.blackColor.CGColor,
-    ];
-    blurMask.locations = @[@0, @(vh * 0.5 / h), @(vh * 1.1 / h), @1];
-    blurMask.frame = bounds;
-    // Scrim over the whole field so the title and controls read against the Fluid artwork; the opaque
-    // clip hides it up top, the blur reveals it below.
-    _ground.frame = bounds;
+    _clip.layer.frame = bounds;
+    for (SGRPlayerClip *clip in _leaving) clip.layer.frame = bounds;
 }
 
 - (void)didMoveToWindow {
@@ -314,25 +286,56 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     [layer addAnimation:animation forKey:@"fade"];
 }
 
+// A broad, soft dissolve into an opaque, artwork-tinted footer, like Music's player. The title sits
+// over the darker end; below it the colour opens out slightly instead of fading all the way to black.
+- (void)updateShade:(BOOL)animated {
+    UIColor *color = SGRFieldColorFor(_edgeColor);
+    CGFloat r = 0, g = 0, b = 0, a = 1;
+    [color getRed:&r green:&g blue:&b alpha:&a];
+    // The page palette deliberately lifts chroma. Behind playback controls the reference is more
+    // subdued: keep the hue, but mix in some of its grey and lower it slightly.
+    CGFloat grey = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    r = (r * 0.6 + grey * 0.4) * 0.9;
+    g = (g * 0.6 + grey * 0.4) * 0.9;
+    b = (b * 0.6 + grey * 0.4) * 0.9;
+    color = [UIColor colorWithRed:r green:g blue:b alpha:1];
+    UIColor *title = [UIColor colorWithRed:r * 0.72 green:g * 0.72 blue:b * 0.72 alpha:1];
+    UIColor *bottom = [UIColor colorWithRed:r * 0.95 green:g * 0.95 blue:b * 0.95 alpha:1];
+    NSArray *colors = @[(id)[title colorWithAlphaComponent:0].CGColor,
+                        (id)[title colorWithAlphaComponent:0.22].CGColor,
+                        (id)[title colorWithAlphaComponent:0.82].CGColor,
+                        (id)title.CGColor, (id)color.CGColor, (id)bottom.CGColor];
+    NSArray *from = ((CAGradientLayer *)_shade.presentationLayer ?: _shade).colors;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    _shade.colors = colors;
+    [CATransaction commit];
+    if (animated && from) {
+        CABasicAnimation *change = [CABasicAnimation animationWithKeyPath:@"colors"];
+        change.fromValue = from;
+        change.toValue = colors;
+        change.duration = kFadeIn;
+        change.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        [_shade addAnimation:change forKey:@"colors"];
+    } else {
+        [_shade removeAnimationForKey:@"colors"];
+    }
+}
+
 // The view's own fade, which the covers keep in step with.
 - (void)fadeTo:(BOOL)shown duration:(NSTimeInterval)duration {
+    NSUInteger generation = ++_visibilityGeneration;
+    if (!shown) [self setCovers:NO];   // wake the artwork field before the clip starts leaving
     float to = shown ? 1 : 0;
     if (fabsf(shownOpacity(self.layer) - to) < 0.001f) duration = 0;
+    __weak SGRPlayerAnimatedView *weakSelf = self;
+    [CATransaction begin];
+    [CATransaction setCompletionBlock:^{
+        SGRPlayerAnimatedView *view = weakSelf;
+        if (view && generation == view->_visibilityGeneration) [view setCovers:shown];
+    }];
     fade(self.layer, to, duration);
-    // UIVisualEffectView does not follow its superview's opacity; pull the effect and hide it when the
-    // clip is gone so it cannot blur the cover underneath.
-    if (!shown) {
-        _blur.effect = nil;
-        _blur.hidden = YES;
-    } else {
-        _blur.hidden = NO;
-        // Hold off the blur until the clip has finished fading in. While the clip is still transparent
-        // the blur would sample the black field behind it and paint a dark rectangle at the bottom.
-        NSTimeInterval delay = duration;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (self->_shown) self->_blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular];
-        });
-    }
+    [CATransaction commit];
     _fadeEnds = CACurrentMediaTime() + duration;
     if (shown == _shown) return;
     _shown = shown;
@@ -344,11 +347,10 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     NSUInteger generation = ++_generation;
     if (_clip) [_leaving addObject:_clip];
     _clip = clip;
-    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, self.bounds.size.height) : self.bounds.size.height;
-    clip.layer.frame = CGRectMake(0, 0, self.bounds.size.width, vh);
+    clip.layer.frame = self.bounds;
     clip.layer.opacity = 0;
     [_clips addSublayer:clip.layer];
-    [clip setPlaying:_playing];
+    [clip setPlaying:_playing && !_lyricsUp];
     __weak SGRPlayerAnimatedView *weakSelf = self;
     clip.ready = ^(SGRPlayerClip *ready) { [weakSelf fadeIn:ready generation:generation]; };
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kReadyWithin * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -371,9 +373,11 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
         SGRPlayerAnimatedView *view = weakSelf;
         if (!view || generation != view->_generation) return;
         [view dropLeaving];
-        [view setCovers:YES];
     }];
     _light = clip.light;
+    _edgeColor = clip.edgeColor;
+    _hasFrame = YES;
+    [self updateShade:shownOpacity(self.layer) > 0.01f];
     fade(_dim, dimFor(_light, _lyricsUp), shownOpacity(self.layer) > 0.01f ? kFadeIn : 0);
     say(@"%@ fades in, its light %.2f dimmed by %.2f", clip.file.lastPathComponent, _light, dimFor(_light, _lyricsUp));
     // Over a clip still on screen the new one fades in on top of it; over the field the whole view does.
@@ -384,7 +388,6 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
         clip.layer.opacity = 1;
         [self dropLeaving];
     }
-    // While the lyrics are up the clip stays hidden behind them; it shows when they close.
     [self fadeTo:!_lyricsUp duration:kFadeIn];
     [CATransaction commit];
 }
@@ -392,7 +395,7 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
 - (void)clear:(BOOL)animated {
     if (!_clip && !_leaving.count && shownOpacity(self.layer) < 0.001f) return;
     NSUInteger generation = ++_generation;
-    [self setCovers:NO];
+    _hasFrame = NO;
     if (_clip) [_leaving addObject:_clip];
     _clip.ready = nil;
     _clip = nil;
@@ -408,17 +411,21 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
 
 - (void)setPlaying:(BOOL)playing {
     _playing = playing;
-    [_clip setPlaying:playing];
-    for (SGRPlayerClip *clip in _leaving) [clip setPlaying:playing];
+    [_clip setPlaying:playing && !_lyricsUp];
+    for (SGRPlayerClip *clip in _leaving) [clip setPlaying:playing && !_lyricsUp];
 }
 
 - (void)setLyricsUp:(BOOL)up animated:(BOOL)animated {
+    BOOL changed = _lyricsUp != up;
     _lyricsUp = up;
-    NSTimeInterval duration = animated && self.window ? kDimChange : 0;
-    fade(_dim, dimFor(_light, up), duration);
-    // On the lyrics page the clip steps aside so Fluid artwork is the only thing behind the words,
-    // the same look as Fluid artwork mode.
-    [self fadeTo:!up duration:duration];
+    // Use the same artwork field as the non-animated player. Keep the clip ready, paused behind it,
+    // so leaving lyrics can crossfade straight back without fetching or restarting the video.
+    if (changed) {
+        [self fadeTo:_hasFrame && !up duration:animated && self.window ? kFadeIn : 0];
+        [self setPlaying:_playing];
+    }
+    fade(_dim, dimFor(_light, up), animated && self.window ? kDimChange : 0);
+    [self updateShade:animated && self.window];
 }
 
 @end
@@ -648,16 +655,13 @@ static void update(void) {
 
 static void covered(BOOL covers) {
     SGRArtworkField *field = sg_field;
-    // The video only covers the top of the screen; below it Fluid artwork is the background, so it keeps
-    // drawing and the colours stay matched to the cover, like the lyrics page's background.
-    field.covered = NO;
-    say(@"Fluid artwork draws while the clip sits over the top of the screen");
+    field.covered = covers;
+    say(@"Fluid artwork %@", covers ? @"stops under the clip" : @"draws again");
 }
 
 // The cover goes as a clip fades in and comes back as it fades out, over the same time (PlayerArtwork.x).
 static void shownChanged(BOOL shown, NSTimeInterval duration) {
     say(@"the cover %@ over %.2f s", shown ? @"goes as the clip fades in" : @"comes back as the clip fades out", duration);
-    if (shown) SGRPlayerFitClipToCover();
     SGRPlayerCoversFollowClip(duration);
 }
 
@@ -696,8 +700,7 @@ UIView *SGRPlayerAnimatedViewIn(UIView *plane, SGRArtworkField *field) {
         say(@"view made in the background plane");
     }
     sg_field = field;
-    // The clip is a square over the cover; Fluid artwork always draws behind it.
-    field.covered = NO;
+    if (field.covered != view.covers) field.covered = view.covers;
     // Another player's plane: the covers follow its clip instead.
     if (sg_view != view) {
         sg_view = view;
