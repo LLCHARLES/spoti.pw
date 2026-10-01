@@ -249,16 +249,20 @@ static float dimFor(float light, BOOL lyricsUp) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect bounds = self.bounds;
-    // AMLL-style: the clip fills the whole screen. The artwork area plays it sharp; below that the
-    // same clip is blurred so the background is the clip's own colours — one continuous field.
-    _video.frame = bounds;
+    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) : bounds.size.height;
+    // The clip lives only in the artwork area so resizeAspectFill does not crop its content. Below it
+    // the Fluid artwork (the field) carries on, following the cover's colours as it does everywhere
+    // else in the player.
+    _video.frame = CGRectMake(0, 0, bounds.size.width, vh);
     _video.mask = nil;
     _clips.frame = _video.bounds;
     _dim.frame = _video.bounds;
     _clip.layer.frame = _video.bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
-    // The blur covers the whole screen; a gradient mask keeps the top (artwork area) sharp and ramps
-    // the blur in over the lower half of the artwork area, so there is no rectangular edge.
+    // The blur ramps in over the lower half of the artwork area and stays on down to the bottom of the
+    // screen. It smears the clip's bottom edge into the Fluid artwork so the two meet on a colour
+    // field rather than a line — no hard rectangle, and no cropping because the blur sits over the
+    // field, not over a stretched copy of the clip.
     _blur.frame = bounds;
     CAGradientLayer *blurMask = (CAGradientLayer *)_blur.layer.mask;
     if (![blurMask isKindOfClass:CAGradientLayer.class]) {
@@ -266,16 +270,16 @@ static float dimFor(float light, BOOL lyricsUp) {
         _blur.layer.mask = blurMask;
     }
     CGFloat h = bounds.size.height;
-    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, h) : h;
     blurMask.colors = @[
-        (id)UIColor.clearColor.CGColor,   // 0 … top of artwork: sharp
-        (id)UIColor.clearColor.CGColor,   // up to 50 % of the artwork area: still sharp
-        (id)UIColor.blackColor.CGColor,   // past the artwork area: fully blurred
-        (id)UIColor.blackColor.CGColor,   // all the way down: fully blurred
+        (id)UIColor.clearColor.CGColor,   // top half of the artwork: sharp clip
+        (id)UIColor.clearColor.CGColor,
+        (id)UIColor.blackColor.CGColor,   // past the artwork: fully blurred field
+        (id)UIColor.blackColor.CGColor,
     ];
-    blurMask.locations = @[@0, @(vh * 0.5 / h), @(vh * 1.15 / h), @1];
+    blurMask.locations = @[@0, @(vh * 0.5 / h), @(vh * 1.1 / h), @1];
     blurMask.frame = bounds;
-    // Light scrim for contrast on the title and controls — AMLL's brightness pass does the same job.
+    // Scrim over the whole field so the title and controls read against the Fluid artwork; the opaque
+    // clip hides it up top, the blur reveals it below.
     _ground.frame = bounds;
 }
 
@@ -320,9 +324,14 @@ static void fade(CALayer *layer, float to, NSTimeInterval duration) {
     if (!shown) {
         _blur.effect = nil;
         _blur.hidden = YES;
-    } else if (_blur.hidden) {
+    } else {
         _blur.hidden = NO;
-        _blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular];
+        // Hold off the blur until the clip has finished fading in. While the clip is still transparent
+        // the blur would sample the black field behind it and paint a dark rectangle at the bottom.
+        NSTimeInterval delay = duration;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (self->_shown) self->_blur.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular];
+        });
     }
     _fadeEnds = CACurrentMediaTime() + duration;
     if (shown == _shown) return;
