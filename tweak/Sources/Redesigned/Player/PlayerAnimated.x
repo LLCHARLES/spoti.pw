@@ -14,8 +14,10 @@ static const NSTimeInterval kFadeIn = 0.6, kFadeOut = 0.45, kDimChange = 0.3;
 // this, where white text keeps 4.5:1 (7:1 with Increase Contrast), as Fluid artwork holds its own; never
 // less than the least, and more under the lyrics. Over it, the shade Fluid artwork has under the controls.
 static const float kCeiling = 0.18f, kCeilingContrast = 0.09f, kUnknownLight = 0.35f;
-static const float kDimLeast = 0.0f, kDimLyrics = 0.15f, kDimMost = 0.3f;
-static const float kShadeMiddle = 0.0f, kShadeBottom = 0.15f;
+// The full-screen ground scrim carries most of the legibility darkening, so the clip's own dim stays
+// light — just enough to keep a very bright clip from blowing out the status bar, never so much that
+// the bottom of the video reads darker than the ground below it (which was the seam).
+static const float kDimLeast = 0.0f, kDimLyrics = 0.10f, kDimMost = 0.12f;
 static const NSTimeInterval kReadyWithin = 5;
 
 static char kReadyContext, kViewKey;
@@ -167,11 +169,10 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 @end
 
 @implementation SGRPlayerAnimatedView {
-    CALayer *_video;   // container for the clip, dim and shade; masked to fade out at the bottom
+    CALayer *_video;   // container for the clip and a light dim; masked to fade out at the bottom
     CALayer *_clips;
     CALayer *_dim;
-    CAGradientLayer *_shade;
-    CAGradientLayer *_ground;   // darkens the Fluid artwork below the video
+    CAGradientLayer *_ground;   // the full-screen legibility scrim over the Fluid artwork
     NSMutableArray<SGRPlayerClip *> *_leaving;   // under the one coming in until it is in
     BOOL _playing, _lyricsUp;
     float _light;   // the shown clip's
@@ -207,9 +208,10 @@ static float dimFor(float light, BOOL lyricsUp) {
     _ground.colors = @[(id)[black colorWithAlphaComponent:0.06].CGColor, (id)[black colorWithAlphaComponent:0.30].CGColor];
     _ground.locations = @[@0, @1];
     [self.layer addSublayer:_ground];
-    // The video band (clip + dim + shade) lives in one container so a single gradient mask can dissolve
-    // its bottom edge into the Fluid artwork behind it — the way BitChord and Apple Music fade a motion
-    // cover out rather than blurring it.
+    // The video band (clip + a light dim) lives in one container so a single gradient mask can dissolve
+    // its bottom edge into the Fluid artwork behind it — the way BitChord, LyricsBlossom and Apple Music
+    // fade a motion cover out rather than blurring it. The full-screen ground scrim below does the
+    // legibility darkening uniformly, so there is no seam where the video ends.
     _video = [CALayer layer];
     _video.actions = still;
     [self.layer addSublayer:_video];
@@ -222,12 +224,6 @@ static float dimFor(float light, BOOL lyricsUp) {
     _light = kUnknownLight;
     _dim.opacity = dimFor(_light, NO);
     [_video addSublayer:_dim];
-    _shade = [CAGradientLayer layer];
-    _shade.actions = still;
-    _shade.colors = @[(id)[black colorWithAlphaComponent:0].CGColor, (id)[black colorWithAlphaComponent:kShadeMiddle].CGColor,
-                      (id)[black colorWithAlphaComponent:kShadeBottom].CGColor];
-    _shade.locations = @[@0.45, @0.75, @1];
-    [_video addSublayer:_shade];
     return self;
 }
 
@@ -251,7 +247,6 @@ static float dimFor(float light, BOOL lyricsUp) {
     _video.frame = video;
     _clips.frame = _video.bounds;
     _dim.frame = _video.bounds;
-    _shade.frame = _video.bounds;
     _clip.layer.frame = _video.bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
     // The bottom of the video band dissolves to transparent so the Fluid artwork bleeds through — a
