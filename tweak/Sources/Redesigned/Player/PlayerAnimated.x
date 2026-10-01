@@ -249,30 +249,19 @@ static float dimFor(float light, BOOL lyricsUp) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect bounds = self.bounds;
-    // The video band sits at the top; below it the Fluid artwork shows through, dimmed by `_ground`.
-    CGFloat vh = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) : bounds.size.height;
-    CGRect video = CGRectMake(0, 0, bounds.size.width, vh);
-    _video.frame = video;
+    // AMLL-style: the clip fills the whole screen. The top (the artwork area) plays the video sharp;
+    // the rest is the same video, heavily blurred, so the background is the clip's own colours — one
+    // continuous field, no seam between "video" and "background".
+    _video.frame = bounds;
+    _video.mask = nil;   // the blur (not an alpha fade) now carries the transition
     _clips.frame = _video.bounds;
     _dim.frame = _video.bounds;
     _clip.layer.frame = _video.bounds;
     for (SGRPlayerClip *clip in _leaving) clip.layer.frame = _video.bounds;
-    // The bottom of the video band dissolves to transparent so the Fluid artwork bleeds through — a
-    // vertical gradient mask, opaque over the top 40% and fading out over the bottom 60%. A wider
-    // dissolve than BitChord's 42 % because our field is a live cover rather than a matched mesh, so
-    // the colours need more room to blend.
-    CAGradientLayer *mask = (CAGradientLayer *)_video.mask;
-    if (![mask isKindOfClass:CAGradientLayer.class]) {
-        mask = [CAGradientLayer layer];
-        mask.colors = @[(id)UIColor.blackColor.CGColor, (id)UIColor.clearColor.CGColor];
-        _video.mask = mask;
-    }
-    mask.frame = _video.bounds;
-    mask.startPoint = CGPointMake(0.5, 0.40);
-    mask.endPoint = CGPointMake(0.5, 1);
-    // The blur covers the same dissolve region, strongest at the bottom where the clip meets the
-    // field, so the video's own colours smear into the Fluid artwork instead of ending on a line.
-    CGRect blurFrame = CGRectMake(0, vh * 0.40, bounds.size.width, vh * 0.60);
+    // The blur starts where the artwork area ends and ramps in towards the bottom; above it the clip
+    // is sharp, below it the clip becomes the soft colour field the controls sit on.
+    CGFloat blurTop = _videoHeight > 0 ? MIN(_videoHeight, bounds.size.height) * 0.5 : bounds.size.height * 0.5;
+    CGRect blurFrame = CGRectMake(0, blurTop, bounds.size.width, bounds.size.height - blurTop);
     if (!CGRectEqualToRect(_blur.frame, blurFrame)) {
         _blur.frame = blurFrame;
         CAGradientLayer *blurMask = [CAGradientLayer layer];
@@ -281,8 +270,8 @@ static float dimFor(float light, BOOL lyricsUp) {
         blurMask.frame = _blur.bounds;
         _blur.layer.mask = blurMask;
     }
-    // The scrim covers the whole field so the colour is continuous under the video and below it; the
-    // opaque video hides it up top and the dissolve lets it through at the seam.
+    // A light scrim over the whole field gives the title and controls contrast without flattening the
+    // clip's colours — same role as AMLL's brightness/saturation pass.
     _ground.frame = bounds;
 }
 
