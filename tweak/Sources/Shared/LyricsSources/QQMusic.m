@@ -709,7 +709,8 @@ SGLyricsAsk SGQQMusicAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *
             return;
         }
         [fitting sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
-            NSString *as = qqSingers(a).lowercaseString, bs = qqSingers(b).lowercaseString;
+            NSString *as = qqSingers(a).lowercaseString;
+            NSString *bs = qqSingers(b).lowercaseString;
             BOOL aMatch = as.length && ([as containsString:lead] || [lead containsString:as]);
             BOOL bMatch = bs.length && ([bs containsString:lead] || [lead containsString:bs]);
             if (aMatch != bMatch) return aMatch ? NSOrderedAscending : NSOrderedDescending;
