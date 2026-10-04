@@ -704,9 +704,10 @@ SGLyricsAsk SGQQMusicAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *
             if (artistOK && timeOK) [fitting addObject:song];
         }
         if (!fitting.count) {
-            SGLog(@"qqmusic: no recording of %@", title);
-            done(nil);
-            return;
+            // No singer match — fall back to the first result, on the bet that QQ Music's search
+            // ranks the title's best known recording first.
+            if (list.count) [fitting addObject:[list firstObject]];
+            else { SGLog(@"qqmusic: no recording of %@", title); done(nil); return; }
         }
         [fitting sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
             NSString *as = qqSingers(a).lowercaseString;
