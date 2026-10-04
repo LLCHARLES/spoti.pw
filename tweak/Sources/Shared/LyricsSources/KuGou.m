@@ -174,8 +174,8 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
 
 #pragma mark - KRC line parsing
 
-// [lineStart,lineLength]<wordStart,wordLength,singer?>... — the KRC shape. Each word's text sits
-// before its <start,length> stamp; a space before a token belongs to the preceding word.
+// [lineStart,lineLength]<wordStart,wordLength,singer?>... — the KRC shape. Unlike QRC the stamp
+// precedes its word, so a word's text spans from the end of its own stamp to the next stamp.
 static NSArray<SGKaraokeLine *> *linesFromKRC(NSString *krc) {
     static NSRegularExpression *header, *part;
     static dispatch_once_t once;
@@ -198,15 +198,14 @@ static NSArray<SGKaraokeLine *> *linesFromKRC(NSString *krc) {
         NSMutableArray<SGKaraokeWord *> *words = [NSMutableArray array];
         SGKaraokeWord *open = nil;
         BOOL spaced = YES;
-        NSUInteger from = NSMaxRange(head.range);
         for (NSUInteger i = 0; i < parts.count; i++) {
             NSTextCheckingResult *match = parts[i];
+            NSUInteger from = NSMaxRange(match.range);
             NSUInteger to = i + 1 < parts.count ? parts[i + 1].range.location : row.length;
-            NSString *raw = [row substringWithRange:NSMakeRange(from, to - from)];
+            NSString *raw = from <= to ? [row substringWithRange:NSMakeRange(from, to - from)] : @"";
             NSString *text = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
             NSInteger start = lineStart + [row substringWithRange:[match rangeAtIndex:1]].integerValue;
             NSInteger length = [row substringWithRange:[match rangeAtIndex:2]].integerValue;
-            from = NSMaxRange(match.range);
             if (start < 0 || start > 36000000 || length < 0 || length > 600000) continue;
             NSInteger end = start + MAX((NSInteger)1, length);
             BOOL unspaced = SGKaraokeUnspacedScript(text);
