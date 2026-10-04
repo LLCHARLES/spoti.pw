@@ -182,6 +182,7 @@ NSArray<SGLyricsProvider *> *SGLyricsAllProviders(void) {
             make(@"netease", @"NetEase", @"Word timing, censored", SGNetEaseAsk),
             make(@"qqmusic", @"QQ Music", @"Word timing, Chinese translation", SGQQMusicAsk),
             make(@"luoyue", @"落月", @"Word timing, Chinese translation (落月)", SGLuoyueAsk),
+            make(@"kugou", @"KuGou", @"Word timing, broad Chinese catalogue", SGKuGouAsk),
             make(@"lrclib", @"LRCLIB", @"Line timing, open fallback", SGLrcLibAsk),
         ];
     });

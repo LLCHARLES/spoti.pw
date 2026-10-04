@@ -160,6 +160,7 @@ extern SGLyricsAsk SGUnisonAsk;
 extern SGLyricsAsk SGNetEaseAsk;
 extern SGLyricsAsk SGQQMusicAsk;     // official Tencent musicu source (QQMusic.m)
 extern SGLyricsAsk SGLuoyueAsk;     // 落月 / third-party api.vkeys.cn source (Luoyue.m)
+extern SGLyricsAsk SGKuGouAsk;       // KuGou KRC/LRC source (KuGou.m)
 extern SGLyricsAsk SGLrcLibAsk;
 extern SGLyricsAsk SGSpicyLyricsAsk;
 
