@@ -157,6 +157,9 @@ NSArray<SGLyricsProvider *> *SGLyricsAllProviders(void) {
             make(@"musixmatch", @"Musixmatch", @"Spotify's licensed catalogue", SGMusixmatchAsk),
             make(@"unison", @"Unison", @"Hand-timed, few tracks", SGUnisonAsk),
             make(@"netease", @"NetEase", @"Word timing, censored", SGNetEaseAsk),
+            make(@"qqmusic", @"QQ Music", @"Word timing, Chinese translation", SGQQMusicAsk),
+            make(@"luoyue", @"落月", @"Word timing, Chinese translation (落月)", SGLuoyueAsk),
+            make(@"kugou", @"KuGou", @"Word timing, broad Chinese catalogue", SGKuGouAsk),
             make(@"lrclib", @"LRCLIB", @"Line timing, open fallback", SGLrcLibAsk),
         ];
     });
@@ -516,10 +519,26 @@ void SGLyricsSetCredit(NSString *trackID, NSString *name) {
 }
 
 // Once, at launch: the keys Musixmatch owned alone become an order, so the Lyrics page opens on what
-// the install was already doing rather than on nothing.
+// the install was already doing rather than on nothing. The old "qqmusic" key named the 落月 source
+// (third-party api.vkeys.cn); it is renamed to "luoyue" so existing installs keep their setting and
+// the official Tencent musicu source can take the "qqmusic" key.
 void SGLyricsMigrateLegacyKeys(void) {
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    if ([defaults objectForKey:SGKeyLyricsProviders]) return;
+    NSArray *stored = [defaults arrayForKey:SGKeyLyricsProviders];
+    if (stored) {
+        if ([stored isKindOfClass:NSArray.class]) {
+            NSMutableArray<NSString *> *remapped = [NSMutableArray array];
+            BOOL changed = NO;
+            for (id k in stored) {
+                if (![k isKindOfClass:NSString.class]) continue;
+                NSString *mapped = [k isEqualToString:@"qqmusic"] ? @"luoyue" : k;
+                if (![mapped isEqualToString:k]) changed = YES;
+                if (![remapped containsObject:mapped]) [remapped addObject:mapped];
+            }
+            if (changed) [defaults setObject:remapped forKey:SGKeyLyricsProviders];
+        }
+        return;
+    }
     NSArray<NSString *> *order = fromLegacyKeys();
     if (!order.count) return;
     SGLyricsSetOrder(order);
