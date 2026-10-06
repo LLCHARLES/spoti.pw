@@ -121,7 +121,7 @@ static NSInteger coverTint(void) {
     if (!image.CGImage) return sg_tint;
     unsigned char pixel[4] = {0};
     CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(pixel, 1, 1, 8, 4, space, kCGImageAlphaPremultipliedLast);
+    CGContextRef context = CGBitmapContextCreate(pixel, 1, 1, 8, 4, space, (CGBitmapInfo)kCGImageAlphaPremultipliedLast);
     CGColorSpaceRelease(space);
     if (!context) return sg_tint;
     CGContextSetInterpolationQuality(context, kCGInterpolationMedium);
