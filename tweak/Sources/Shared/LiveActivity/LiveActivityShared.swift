@@ -39,6 +39,8 @@ struct SGLyricsAttributes: ActivityAttributes {
         var repeatMode: Int   // 0 off, 1 the playlist or album, 2 the track
         var timerEnd: Date?   // the sleep timer's end, nil when none is set
         var timerEndOfTrack: Bool
+        // The track playing was saved to Liked Songs from the card this session.
+        var liked: Bool
     }
 }
 

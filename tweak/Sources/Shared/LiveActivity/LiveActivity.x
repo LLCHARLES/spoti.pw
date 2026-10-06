@@ -50,6 +50,8 @@ static NSString *sg_missingLyrics;
 static NSDate *sg_lastStart;
 static SGLiveActivityTab sg_tab;
 // The sleep timer: an end, or the end of the track it was set on.
+// The tracks the card saved to Liked Songs this session, by their base62 id.
+static NSMutableSet<NSString *> *sg_liked;
 static NSDate *sg_sleepEnd;
 static NSString *sg_sleepTrack;
 
@@ -180,16 +182,44 @@ static void tick(void) API_AVAILABLE(ios(17.0)) {
     NSInteger tab = panel ? sg_tab : 0;
     NSDate *sleepEnd = sg_sleepEnd;
     BOOL endOfTrack = sg_sleepTrack != nil;
+    BOOL liked = panel && trackID && [sg_liked containsObject:trackID];
 
     NSMutableArray<NSString *> *parts = [NSMutableArray arrayWithObjects:@(view).stringValue, paused ? @"1" : @"0", line, next,
         @(tab).stringValue, title, artist, shuffle ? @"1" : @"0", @(repeatMode).stringValue,
-        @((long long)sleepEnd.timeIntervalSince1970).stringValue, endOfTrack ? @"1" : @"0", nil];
+        @((long long)sleepEnd.timeIntervalSince1970).stringValue, endOfTrack ? @"1" : @"0", liked ? @"1" : @"0", nil];
     for (NSUInteger i = 0; i < titles.count; i++) [parts addObject:[NSString stringWithFormat:@"%@\t%@\t%@", titles[i], artists[i], uris[i]]];
     send([parts componentsJoinedByString:@"\n"], ^{
         [SGLiveActivityBridge showWithView:view paused:paused line:line nextLine:next titles:titles artists:artists uris:uris
                                         tab:tab title:title artist:artist shuffle:shuffle repeatMode:repeatMode
-                                   timerEnd:sleepEnd timerEndOfTrack:endOfTrack];
+                                   timerEnd:sleepEnd timerEndOfTrack:endOfTrack liked:liked];
     });
+}
+
+// Like and dislike from the card: a track saved to or removed from Liked Songs through Spotify's Web API,
+// with the Authorization of Spotify's own requests (Shared/Lyrics), which goes nowhere but Spotify. The card
+// shows the change at once, the way its toggle already flipped, and goes back should Spotify say no.
+static void saveTrack(NSString *trackID, BOOL save) {
+    NSString *authorization = SGKaraokeSpotifyAuthorization();
+    if (!trackID.length || SGKaraokeIsLocalTrack(trackID) || !authorization) {
+        SGLog(@"live activity: cannot %@ %@ (%@)", save ? @"like" : @"unlike", trackID, authorization ? @"no track" : @"no token yet");
+        return;
+    }
+    if (save) [sg_liked addObject:trackID];
+    else [sg_liked removeObject:trackID];
+    NSURL *url = [NSURL URLWithString:[@"https://api.spotify.com/v1/me/tracks?ids=" stringByAppendingString:trackID]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    request.HTTPMethod = save ? @"PUT" : @"DELETE";
+    [request setValue:authorization forHTTPHeaderField:@"Authorization"];
+    [[NSURLSession.sharedSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            BOOL done = status >= 200 && status < 300;
+            if (!done && save) [sg_liked removeObject:trackID];
+            else if (!done) [sg_liked addObject:trackID];
+            SGLog(@"live activity: %@ %@ -> HTTP %ld%@", save ? @"like" : @"unlike", trackID, (long)status,
+                  error ? [@", " stringByAppendingString:error.localizedDescription] : @"");
+        });
+    }] resume];
 }
 
 // A tap on a track up next: skips ahead to it, found again by its URI in case the queue moved since
@@ -210,6 +240,7 @@ static void playQueued(NSString *uri) {
 
 // A tap in the control menu, one of SGLiveActivityActionIntent's actions.
 static void runAction(NSString *action) {
+    if (!sg_liked) sg_liked = [NSMutableSet set];
     id<SPTPlayer> player = SGKaraokePlayer();
     SPTPlayerState *state = player.state;
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@":"];
@@ -234,6 +265,13 @@ static void runAction(NSString *action) {
                 [player setRepeatingTrack:NO];
                 result = [player setRepeatingContext:NO];
         }
+    } else if ([name isEqualToString:@"like"]) {
+        NSString *trackID = SGKaraokePlayingTrack();
+        saveTrack(trackID, ![sg_liked containsObject:trackID]);
+    } else if ([name isEqualToString:@"dislike"]) {
+        NSString *trackID = SGKaraokePlayingTrack();
+        if ([sg_liked containsObject:trackID]) saveTrack(trackID, NO);
+        result = [player skipToNextTrackWithOptions:nil];
     } else if ([name isEqualToString:@"timer"]) {
         if ([value isEqualToString:@"cancel"]) {
             clearSleepTimer();

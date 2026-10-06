@@ -318,10 +318,14 @@ private struct ControlsPage: View {
             .lineLimit(1)
             .invalidatableContent()
             HStack(spacing: 6) {
+                // Dislike skips the track (and takes it out of Liked Songs if the card put it there).
+                ChipButton(action: "dislike", symbol: "hand.thumbsdown", label: "Dislike")
                 ChipButton(action: "previous", symbol: "backward.fill", label: "Previous")
                 Toggle(isOn: !state.paused, intent: SGLiveActivityActionIntent("toggle")) { EmptyView() }
                     .toggleStyle(ChipStyle(symbol: "play.fill", onSymbol: "pause.fill", label: "Play", onLabel: "Pause", lights: false))
                 ChipButton(action: "next", symbol: "forward.fill", label: "Next")
+                Toggle(isOn: state.liked, intent: SGLiveActivityActionIntent("like")) { EmptyView() }
+                    .toggleStyle(ChipStyle(symbol: "heart", onSymbol: "heart.fill", label: "Like", onLabel: "Liked"))
                 Toggle(isOn: state.shuffle, intent: SGLiveActivityActionIntent("shuffle")) { EmptyView() }
                     .toggleStyle(ChipStyle(symbol: "shuffle", label: "Shuffle"))
                 // Three states, so a button: the new one shows once the render lands.

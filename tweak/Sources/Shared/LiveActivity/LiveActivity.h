@@ -1,7 +1,8 @@
 // The Live Activity (Mod Settings > Live Activity), on the lock screen and in the Dynamic
 // Island (iOS 17+), under either look: it draws on no Spotify screen of its own. In one of three views: the line being sung with the next one under it, the tracks
 // up next (a tap on one skipping ahead to it), or the control menu, tabs of Controls (previous, play and
-// pause, next, shuffle, repeat), Queue and a sleep Timer of the mod's own that pauses Spotify.
+// pause, next, shuffle, repeat, and like and dislike: Liked Songs through Spotify's Web API with the app's own
+// token, a dislike skipping the track), Queue and a sleep Timer of the mod's own that pauses Spotify.
 //
 //     LiveActivity.x              polls the player, sends the activity a new state when what it shows changes
 //     LiveActivityBridge.swift    ActivityKit, which is Swift only
