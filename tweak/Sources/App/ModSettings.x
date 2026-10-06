@@ -26,6 +26,7 @@
 #import "Shared/AudioEffects/AudioEffectsPage.h"
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/HeadGestures/HeadGestures.h"
+#import "Shared/ListeningStats/ListeningStats.h"
 #import "App/About/About.h"
 #import "App/Donate/Donate.h"
 #import "Pages.h"
@@ -75,6 +76,9 @@ static UIViewController *modSettingsPage(void) {
     SGModRow *headGestures = pageRow(@"AirPods gestures", @"airpodspro", ^UIViewController *{ return SGHeadGesturesSettingsPage(); });
     headGestures.value = ^NSString *{ return SGHeadGesturesSummary(); };
     [parts addObject:headGestures];
+    SGModRow *listening = pageRow(@"Listening stats", @"chart.bar.fill", ^UIViewController *{ return SGListeningStatsPage(); });
+    listening.value = ^NSString *{ return SGListeningStatsSummary(); };
+    [parts addObject:listening];
     if (SGRedesignedUIStored()) [parts addObject:pageRow(@"Albums", @"square.stack", ^UIViewController *{ return SGRAlbumSettingsPage(); })];
     else [parts addObject:pageRow(@"Home & Library", @"house", ^UIViewController *{ return SGHomeSettingsPage(); })];
     [sections addObject:SGAppearanceSection()];

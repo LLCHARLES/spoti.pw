@@ -152,6 +152,10 @@ Shared:
                   plays; SGHeadGestureDetector.m, plain C, tells a deliberate gesture -- three or more quick swings on
                   one axis, begun and ended in stillness -- from nodding along, which never rests. Tested on the Mac or
                   Linux against harness/headgestures/
+    ListeningStats/ Listening stats (Mod Settings > Listening stats): every listen of a track logged from the player's
+                  state (SGListeningLog.m, Application Support/spoti.pw/Stats/listening.json, written every 30 s and
+                  when Spotify leaves the screen), a play from 30 s on; the page sums the last four weeks, six months
+                  or all time into minutes, plays, top tracks and top artists, each opening in Spotify. Local only
     Player/       the player's open and close announced (PlayerEvents.x), what the player is doing read through
                   one hook for every feature that wants it (PlayerState.x), the lock screen widget's flags, and in the
                   more button's menu Speed and pitch: both done to Spotify's audio by Apple's time and pitch unit, put
