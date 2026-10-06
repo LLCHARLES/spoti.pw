@@ -89,6 +89,7 @@ UIViewController *SGPlayerSettingsPage(void) {
 
     NSMutableArray<SGModSection *> *sections = [NSMutableArray arrayWithObject:SGSection(nil, @[
         SGWithSymbol(SGPageRow(@"Gestures", ^UIViewController *{ return SGGesturesSettingsPage(); }), @"hand.tap"),
+        SGWithSymbol(SGOptionRow(@"Hold to play faster", @"Either side of the cover, 2× until you let go", SGKeyGestureHold), @"forward"),
         SGWithSymbol(blocked, @"person.crop.circle.badge.xmark"),
     ])];
     NSMutableArray<SGModRow *> *pages = [NSMutableArray array];
