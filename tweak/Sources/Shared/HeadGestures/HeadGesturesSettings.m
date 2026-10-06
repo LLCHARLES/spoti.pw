@@ -54,11 +54,9 @@ static void learn(void) {
 UIViewController *SGHeadGesturesSettingsPage(void) {
     SGModRow *on = SGOptionRow(@"AirPods gestures", @"Nod or shake your head to control playback", SGKeyHeadGestures);
     on.changed = ^(BOOL value) { SGHeadGesturesApply(); };
-    BOOL (^shown)(void) = ^BOOL { return SGFlag(SGKeyHeadGestures, NO); };
-    SGModRow *nod = SGChoiceRow(@"Nod twice", nil, SGKeyHeadGestureNod, actions(), SGHeadGestureActionLike);
-    nod.visible = shown;
-    SGModRow *shake = SGChoiceRow(@"Shake your head", nil, SGKeyHeadGestureShake, actions(), SGHeadGestureActionNext);
-    shake.visible = shown;
+    SGModRow *nod = SGWaitsOn(SGChoiceRow(@"Nod twice", nil, SGKeyHeadGestureNod, actions(), SGHeadGestureActionLike), SGKeyHeadGestures, NO);
+    SGModRow *shake = SGWaitsOn(SGChoiceRow(@"Shake your head", nil, SGKeyHeadGestureShake, actions(), SGHeadGestureActionNext),
+                                SGKeyHeadGestures, NO);
     NSString *footer = SGHeadMotionSupported()
         ? @"Works with AirPods Pro, AirPods Max, AirPods (3rd generation) or later, and Beats with head tracking. "
           "Nod twice, or shake your head, quickly and then hold still; nodding along to a song is left alone. "
@@ -67,7 +65,7 @@ UIViewController *SGHeadGesturesSettingsPage(void) {
     SGModRow *teach = SGStatActionRow(@"Learn my nod and shake", nil, ^NSString *{
         return SGInt(SGKeyHeadGestureNodScale, 100) == 100 && SGInt(SGKeyHeadGestureShakeScale, 100) == 100 ? @"Default" : @"Learned";
     }, ^{ learn(); });
-    teach.visible = shown;
+    SGWaitsOn(teach, SGKeyHeadGestures, NO);
     SGModSection *section = SGNotedSection(nil, @[on, nod, shake, teach], footer);
     return [[SGModPage alloc] initWithTitle:@"AirPods gestures" intro:nil sections:@[section] footer:nil];
 }

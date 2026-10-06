@@ -20,8 +20,8 @@ static void changed(void) {
     [NSNotificationCenter.defaultCenter postNotificationName:SGVisualizerSettingsDidChangeNotification object:nil];
 }
 
-NSArray<SGModRow *> *SGVisualizerRows(BOOL (^shown)(void)) {
-    BOOL (^own)(void) = ^BOOL { return (!shown || shown()) && !SGFlag(SGKeyVisualizerLikeHaptics, NO); };
+NSArray<SGModRow *> *SGVisualizerRows(NSString *waitsOnKey) {
+    BOOL (^own)(void) = ^BOOL { return !SGFlag(SGKeyVisualizerLikeHaptics, NO); };
     SGModRow *likeHaptics = SGOptionRow(@"Same as Music Haptics", @"Its strength and what it follows", SGKeyVisualizerLikeHaptics);
     likeHaptics.changed = ^(BOOL on) { changed(); };
     SGModRow *strength = SGSliderRow(@"Strength", nil, SGMusicStrengthMin, SGMusicStrengthMax, SGStrengthStep,
@@ -42,9 +42,6 @@ NSArray<SGModRow *> *SGVisualizerRows(BOOL (^shown)(void)) {
     SGModRow *mirror = SGSwitchRow(@"Mirror", @"Each side the other's reflection", SGKeyVisualizerMirror);
     mirror.changed = ^(BOOL on) { changed(); };
     NSArray<SGModRow *> *rows = @[likeHaptics, strength, follows, bars, style, color, mirror];
-    for (SGModRow *row in rows) {
-        if (row.visible || !shown) continue;
-        row.visible = shown;
-    }
+    if (waitsOnKey) for (SGModRow *row in rows) SGWaitsOn(row, waitsOnKey, NO);
     return rows;
 }

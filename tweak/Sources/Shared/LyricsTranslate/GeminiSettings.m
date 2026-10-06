@@ -16,7 +16,7 @@ SGModSection *SGGeminiSection(void) {
         },
         ^NSString *(NSString *text) { return SGGeminiSetKey(text); });
     key.refreshOn = SGGeminiKeyDidChangeNotification;
-    key.visible = ^BOOL { return SGFlag(SGKeyLyricsGemini, NO); };
+    SGWaitsOn(key, SGKeyLyricsGemini, NO);
     SGModSection *section = SGNotedSection(@"Gemini translation", @[on, key],
         @"Lyrics without a translation are sent, text only, to Google's Gemini with a key of your own and translated "
          "into the translation language above, or this iPhone's language when that is Any. Turn translations on from "

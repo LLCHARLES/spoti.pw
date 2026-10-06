@@ -299,6 +299,12 @@ SGModSection *SGNotedSection(NSString *title, NSArray<SGModRow *> *rows, NSStrin
     return s;
 }
 
+SGModRow *SGWaitsOn(SGModRow *row, NSString *key, BOOL defaultOn) {
+    row.waitsOnKey = key;
+    row.waitsOn = ^BOOL { return SGFlag(key, defaultOn); };
+    return row;
+}
+
 SGModRow *SGWithSymbol(SGModRow *row, NSString *symbol) {
     row.symbol = symbol;
     return row;
@@ -745,7 +751,31 @@ static void showProgress(UITableViewCell *cell, SGModRow *row, BOOL animated) {
     return [self hidesSection:section] ? CGFLOAT_MIN : SGSectionFooterHeightFor(table, _sections[(NSUInteger)section]);
 }
 
+// Greyed out and taking no touch of its own while what it waits on is off; the cell still takes the tap
+// that nudges the switch.
+static void showWaiting(UITableViewCell *cell, SGModRow *row) {
+    BOOL waiting = row.waitsOn && !row.waitsOn();
+    CGFloat alpha = waiting ? 0.38 : 1;
+    if (cell.contentView.alpha != alpha) cell.contentView.alpha = alpha;
+    cell.contentView.userInteractionEnabled = !waiting;
+    if (cell.accessoryView) {
+        cell.accessoryView.alpha = alpha;
+        cell.accessoryView.userInteractionEnabled = !waiting;
+    }
+    for (UIView *view in cell.contentView.subviews) {
+        if ([view isKindOfClass:UIControl.class]) ((UIControl *)view).enabled = !waiting;
+    }
+    cell.accessibilityTraits = waiting ? cell.accessibilityTraits | UIAccessibilityTraitNotEnabled
+                                       : cell.accessibilityTraits & ~UIAccessibilityTraitNotEnabled;
+}
+
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell = [self cellFor:table at:path];
+    showWaiting(cell, [self rowAt:path]);
+    return cell;
+}
+
+- (UITableViewCell *)cellFor:(UITableView *)table at:(NSIndexPath *)path {
     SGModRow *row = [self rowAt:path];
     if (row.view) {
         UITableViewCell *cell = SGDequeueCell(table, @"view");
@@ -797,8 +827,36 @@ static void showProgress(UITableViewCell *cell, SGModRow *row, BOOL animated) {
     return cell;
 }
 
+// The switch a waiting row waits on, given a small push so the eye goes to it.
+- (void)nudgeSwitchFor:(SGModRow *)row {
+    NSIndexPath *found = nil;
+    for (NSUInteger section = 0; section < _shown.count && !found; section++) {
+        [_shown[section] enumerateObjectsUsingBlock:^(SGModRow *other, NSUInteger i, BOOL *stop) {
+            if ([other.key isEqualToString:row.waitsOnKey]) {
+                found = [NSIndexPath indexPathForRow:(NSInteger)i inSection:(NSInteger)section];
+                *stop = YES;
+            }
+        }];
+    }
+    if (!found) return;
+    [self.tableView scrollToRowAtIndexPath:found atScrollPosition:UITableViewScrollPositionNone animated:YES];
+    UIView *toggle = [self.tableView cellForRowAtIndexPath:found].accessoryView;
+    if (!toggle) return;
+    UIImpactFeedbackGenerator *tap = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+    [tap impactOccurred];
+    CAKeyframeAnimation *shake = [CAKeyframeAnimation animationWithKeyPath:@"transform.translation.x"];
+    shake.values = @[@0, @-7, @6, @-4, @3, @0];
+    shake.duration = 0.4;
+    [toggle.layer addAnimation:shake forKey:@"sg.nudge"];
+}
+
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     SGModRow *row = [self rowAt:path];
+    if (row.waitsOn && !row.waitsOn()) {
+        [table deselectRowAtIndexPath:path animated:YES];
+        [self nudgeSwitchFor:row];
+        return;
+    }
     if (flagRowLocked(row)) {
         [table deselectRowAtIndexPath:path animated:YES];
         [self explainLock];
@@ -855,6 +913,13 @@ static void showProgress(UITableViewCell *cell, SGModRow *row, BOOL animated) {
     };
     BOOL moved = [self showRowsThen:row.changed ? reload : nil];
     if (row.changed && !moved) reload();
+    // The rows waiting on it brighten or grey out where they are.
+    [UIView animateWithDuration:0.25 animations:^{
+        for (UITableViewCell *cell in self.tableView.visibleCells) {
+            NSIndexPath *at = [self.tableView indexPathForCell:cell];
+            if (at) showWaiting(cell, [self rowAt:at]);
+        }
+    }];
     if (on && row.warning) [self warn:row];
 }
 

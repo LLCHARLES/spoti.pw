@@ -28,7 +28,7 @@ SGModRow *SGLockScreenLyricsPlaceRow(void) {
     SGModRow *row = SGChoiceRow(@"Show the line", nil, SGKeyLockScreenLyricsPlace, @[@"In place of the artist", @"As the artwork", @"Both"],
                                 SGLockScreenLyricsArtist);
     row.choiceNotes = @[@"The line under the title", @"The line and the next over the cover, blurred", @"Under the title and over the cover"];
-    row.visible = ^BOOL { return SGFlag(SGKeyLockScreenLyrics, NO); };
+    SGWaitsOn(row, SGKeyLockScreenLyrics, NO);
     return row;
 }
 

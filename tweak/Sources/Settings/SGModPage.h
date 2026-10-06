@@ -30,6 +30,10 @@
 // tapped or the page comes back from a choice's list: the row fades in or out where it sits, and a section
 // whose rows are all hidden goes with its header and footer. Nil shows it always.
 @property (nonatomic, copy) BOOL (^visible)(void);
+// A row that only means something while a switch on the page is on: it stays where it is, greyed out and
+// taking no touch while the switch is off, and a tap on it nudges that switch. Set with SGWaitsOn.
+@property (nonatomic, copy) BOOL (^waitsOn)(void);
+@property (nonatomic, copy) NSString *waitsOnKey;
 // A row of a list picked from on the page itself (SGChoiceListRows): a checkmark while this answers YES.
 @property (nonatomic, copy) BOOL (^checked)(void);
 // A row that is a view of its own, `height` tall, on no card (SGViewRow).
@@ -103,6 +107,8 @@ SGModRow *SGTextRow(NSString *title, NSString *prompt, NSString *placeholder, NS
 SGModRow *SGStatActionRow(NSString *title, NSString *subtitle, NSString *(^value)(void), void (^action)(void));
 SGModSection *SGSection(NSString *title, NSArray<SGModRow *> *rows);
 SGModSection *SGNotedSection(NSString *title, NSArray<SGModRow *> *rows, NSString *footer);
+// Makes `row` wait on the switch stored under `key` (SGModRow.waitsOn), read the way that switch reads it.
+SGModRow *SGWaitsOn(SGModRow *row, NSString *key, BOOL defaultOn);
 // Gives a row its leading symbol, drawn on a tile unless the row has a colour of its own.
 SGModRow *SGWithSymbol(SGModRow *row, NSString *symbol);
 // A row as the page draws it, but for the switch a row with a key gets from the page, for other lists

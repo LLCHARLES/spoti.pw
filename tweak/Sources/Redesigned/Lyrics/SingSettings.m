@@ -139,8 +139,8 @@ static SGModSection *karaokeSection(void) {
 static SGModSection *spatialSection(void) {
     SGModRow *spatial = SGOptionRow(@"Spatial voice", @"The voice stays in front as you turn your head", SGKeySpatialVoice);
     spatial.changed = ^(BOOL on) { SGSpatialVoiceApply(); };
-    SGModRow *follow = SGSwitchRow(@"Follow iPhone", @"Front settles where your head rests", SGKeySpatialVoiceFollow);
-    follow.visible = ^BOOL { return SGFlag(SGKeySpatialVoice, NO); };
+    SGModRow *follow = SGWaitsOn(SGSwitchRow(@"Follow iPhone", @"Front settles where your head rests", SGKeySpatialVoiceFollow),
+                                 SGKeySpatialVoice, NO);
     return SGNotedSection(@"Spatial voice", @[spatial, follow],
                           @"With AirPods Pro, AirPods Max, AirPods (3rd generation) or later, or Beats with head tracking, "
                           "Sing places the voice in front of you and keeps it there as you turn your head; the music stays as it was mixed. "

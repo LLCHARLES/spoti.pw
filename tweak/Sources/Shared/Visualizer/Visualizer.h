@@ -46,5 +46,6 @@ void SGVisualizerSetListening(BOOL listening);
 BOOL SGVisualizerReadBars(float *bars, NSInteger count, float elapsed);
 
 @class SGModRow;
-// VisualizerSettings.m: the rows that set it up, for the page of whoever shows a ring.
-NSArray<SGModRow *> *SGVisualizerRows(BOOL (^shown)(void));
+// VisualizerSettings.m: the rows that set it up, for the page of whoever shows a ring, greyed out while the
+// switch under `waitsOnKey` (off until switched on) is off; nil for none.
+NSArray<SGModRow *> *SGVisualizerRows(NSString *waitsOnKey);
