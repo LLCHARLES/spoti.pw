@@ -16,7 +16,7 @@ API_AVAILABLE(ios(17.0))
 + (void)showWithView:(NSInteger)view paused:(BOOL)paused line:(NSString *)line nextLine:(NSString *)nextLine
               titles:(NSArray<NSString *> *)titles artists:(NSArray<NSString *> *)artists uris:(NSArray<NSString *> *)uris
                  tab:(NSInteger)tab title:(NSString *)title artist:(NSString *)artist shuffle:(BOOL)shuffle repeatMode:(NSInteger)repeatMode
-            timerEnd:(NSDate *)timerEnd timerEndOfTrack:(BOOL)timerEndOfTrack;
+            timerEnd:(NSDate *)timerEnd timerEndOfTrack:(BOOL)timerEndOfTrack liked:(BOOL)liked;
 + (void)end;
 @end
 

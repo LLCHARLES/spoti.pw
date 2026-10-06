@@ -1125,7 +1125,7 @@ typedef struct {
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(restyle) name:SGRLyricsTextDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lookChanged) name:SGRLyricsLookDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(linesKept:) name:SGKaraokeLinesDidChangeNotification object:nil];
-    [SGRKaraokeView.liveViews addObject:self];
+    [[SGRKaraokeView liveViews] addObject:self];
     // A locked phone leaves the card in its window, so the link has to be put down by the app going
     // away rather than by the view going: see scheduleLink.
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(scheduleLink) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -1423,7 +1423,7 @@ typedef struct {
 }
 
 + (BOOL)lyricsOnScreen {
-    for (SGRKaraokeView *view in self.liveViews.allObjects) {
+    for (SGRKaraokeView *view in [self liveViews].allObjects) {
         if (view.landscape || !view->_showing || !view.window || view.window.hidden) continue;
         UIView *ancestor = view;
         BOOL shown = YES;
