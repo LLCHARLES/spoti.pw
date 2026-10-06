@@ -98,19 +98,23 @@ static UIFont *swap(UIFont *original) {
 }
 
 + (UIFont *)preferredFontForTextStyle:(UIFontTextStyle)style {
-    return swap(%orig);
+    UIFont *font = %orig;
+    return swap(font);
 }
 
 + (UIFont *)preferredFontForTextStyle:(UIFontTextStyle)style compatibleWithTraitCollection:(UITraitCollection *)traits {
-    return swap(%orig);
+    UIFont *font = %orig;
+    return swap(font);
 }
 
 + (UIFont *)fontWithName:(NSString *)name size:(CGFloat)size {
-    return swap(%orig);
+    UIFont *font = %orig;
+    return swap(font);
 }
 
 + (UIFont *)fontWithDescriptor:(UIFontDescriptor *)descriptor size:(CGFloat)size {
-    return swap(%orig);
+    UIFont *font = %orig;
+    return swap(font);
 }
 
 %end
