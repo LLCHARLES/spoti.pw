@@ -41,6 +41,15 @@ struct SGLyricsAttributes: ActivityAttributes {
         var timerEndOfTrack: Bool
         // The track playing was saved to Liked Songs from the card this session.
         var liked: Bool
+        // The sung line in the Lyrics page's translation language, "" for none.
+        var translation: String
+        // The cover's colour as 0xRRGGBB, -1 before it is known.
+        var tint: Int
+        // How far into the track: while it plays the bar runs on its own from start to end; paused, it
+        // stands at progress (0...1), and start and end are nil.
+        var progress: Double
+        var trackStart: Date?
+        var trackEnd: Date?
     }
 }
 

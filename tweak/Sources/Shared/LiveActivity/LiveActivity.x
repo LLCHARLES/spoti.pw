@@ -4,6 +4,7 @@
 // playing in the background, so the timer keeps running there too, and with it the sleep timer.
 // The activity is started only while the app is in front, the one place ActivityKit allows it.
 #import <UIKit/UIKit.h>
+#import <MediaPlayer/MediaPlayer.h>
 #import <objc/runtime.h>
 #import "Core/SGCore.h"
 #import "Headers/SPTPlayer.h"
@@ -17,7 +18,9 @@ API_AVAILABLE(ios(17.0))
 + (void)showWithView:(NSInteger)view paused:(BOOL)paused line:(NSString *)line nextLine:(NSString *)nextLine
               titles:(NSArray<NSString *> *)titles artists:(NSArray<NSString *> *)artists uris:(NSArray<NSString *> *)uris
                  tab:(NSInteger)tab title:(NSString *)title artist:(NSString *)artist shuffle:(BOOL)shuffle repeatMode:(NSInteger)repeatMode
-            timerEnd:(NSDate *)timerEnd timerEndOfTrack:(BOOL)timerEndOfTrack liked:(BOOL)liked;
+            timerEnd:(NSDate *)timerEnd timerEndOfTrack:(BOOL)timerEndOfTrack liked:(BOOL)liked
+         translation:(NSString *)translation tint:(NSInteger)tint progress:(double)progress
+          trackStart:(NSDate *)trackStart trackEnd:(NSDate *)trackEnd;
 + (void)end;
 @end
 
@@ -104,6 +107,45 @@ static NSInteger repeatModeOf(SPTPlayerOptions *options) {
     return options.repeatingTrack ? 2 : options.repeatingContext ? 1 : 0;
 }
 
+// The cover's colour, the average of the artwork Spotify hands the system's now playing, worked out once per
+// cover and brightened a little so a dark cover still tints the card. -1 until there is one.
+static __weak MPMediaItemArtwork *sg_tintOf;
+static NSInteger sg_tint = -1;
+
+static NSInteger coverTint(void) {
+    id artwork = MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo[MPMediaItemPropertyArtwork];
+    if (![artwork isKindOfClass:MPMediaItemArtwork.class]) return sg_tint;
+    if (artwork == sg_tintOf) return sg_tint;
+    sg_tintOf = artwork;
+    UIImage *image = [(MPMediaItemArtwork *)artwork imageWithSize:CGSizeMake(32, 32)];
+    if (!image.CGImage) return sg_tint;
+    unsigned char pixel[4] = {0};
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(pixel, 1, 1, 8, 4, space, kCGImageAlphaPremultipliedLast);
+    CGColorSpaceRelease(space);
+    if (!context) return sg_tint;
+    CGContextSetInterpolationQuality(context, kCGInterpolationMedium);
+    CGContextDrawImage(context, CGRectMake(0, 0, 1, 1), image.CGImage);
+    CGContextRelease(context);
+    CGFloat hue, saturation, brightness;
+    UIColor *average = [UIColor colorWithRed:pixel[0] / 255.0 green:pixel[1] / 255.0 blue:pixel[2] / 255.0 alpha:1];
+    [average getHue:&hue saturation:&saturation brightness:&brightness alpha:NULL];
+    UIColor *lifted = [UIColor colorWithHue:hue saturation:MIN(1, saturation * 1.2) brightness:MAX(0.55, brightness) alpha:1];
+    CGFloat r, g, b;
+    [lifted getRed:&r green:&g blue:&b alpha:NULL];
+    sg_tint = (NSInteger)lround(r * 255) << 16 | (NSInteger)lround(g * 255) << 8 | (NSInteger)lround(b * 255);
+    return sg_tint;
+}
+
+// The translation of the line being sung, in the Lyrics page's language, where the lyrics have one.
+static NSString *translationOf(NSString *trackID) {
+    if (!SGEnabled(SGKeyLiveActivityTranslation)) return @"";
+    NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesForTrack(trackID);
+    NSInteger index = lines ? SGKaraokeLeadLine(lines, SGKaraokePositionMs()) : -1;
+    NSString *translation = index >= 0 ? lines[index].translation : nil;
+    return translation.length ? translation : @"";
+}
+
 // The line being sung and the one after it; before the first line, between lines and without lyrics
 // at all, a note holds the place.
 static NSString *lyricsLine(NSString *trackID, NSString **next) {
@@ -184,15 +226,26 @@ static void tick(void) API_AVAILABLE(ios(17.0)) {
     NSDate *sleepEnd = sg_sleepEnd;
     BOOL endOfTrack = sg_sleepTrack != nil;
     BOOL liked = panel && trackID && [sg_liked containsObject:trackID];
+    NSString *translation = view == SGLiveActivityLyrics && ![line isEqualToString:@"♪"] ? translationOf(trackID) : @"";
+    NSInteger tint = coverTint();
+    // The bar runs on its own from the track's start to its end while it plays, so only a seek, a pause or a
+    // new track sends a new state; paused, it stands where it is.
+    double duration = [state respondsToSelector:@selector(duration)] ? state.duration : 0;
+    double position = MAX(0, SGKaraokePositionMs() / 1000.0);
+    double progress = duration > 0 ? MIN(1, position / duration) : 0;
+    NSDate *trackStart = !paused && duration > 0 ? [NSDate dateWithTimeIntervalSinceNow:-position] : nil;
+    NSDate *trackEnd = trackStart ? [trackStart dateByAddingTimeInterval:duration] : nil;
 
     NSMutableArray<NSString *> *parts = [NSMutableArray arrayWithObjects:@(view).stringValue, paused ? @"1" : @"0", line, next,
         @(tab).stringValue, title, artist, shuffle ? @"1" : @"0", @(repeatMode).stringValue,
-        @((long long)sleepEnd.timeIntervalSince1970).stringValue, endOfTrack ? @"1" : @"0", liked ? @"1" : @"0", nil];
+        @((long long)sleepEnd.timeIntervalSince1970).stringValue, endOfTrack ? @"1" : @"0", liked ? @"1" : @"0", translation, @(tint).stringValue,
+        paused ? @(lround(progress * 100)).stringValue : @(lround(trackStart.timeIntervalSince1970 / 2)).stringValue, nil];
     for (NSUInteger i = 0; i < titles.count; i++) [parts addObject:[NSString stringWithFormat:@"%@\t%@\t%@", titles[i], artists[i], uris[i]]];
     send([parts componentsJoinedByString:@"\n"], ^{
         [SGLiveActivityBridge showWithView:view paused:paused line:line nextLine:next titles:titles artists:artists uris:uris
                                         tab:tab title:title artist:artist shuffle:shuffle repeatMode:repeatMode
-                                   timerEnd:sleepEnd timerEndOfTrack:endOfTrack liked:liked];
+                                   timerEnd:sleepEnd timerEndOfTrack:endOfTrack liked:liked
+                                translation:translation tint:tint progress:progress trackStart:trackStart trackEnd:trackEnd];
     });
 }
 

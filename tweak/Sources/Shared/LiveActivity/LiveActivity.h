@@ -25,6 +25,8 @@
 #define SGKeyLiveActivity @"spotifyglass.liveActivity"
 // Which view it shows, the index into the page's list.
 #define SGKeyLiveActivityView @"spotifyglass.liveActivity.view"
+// The sung line's translation under it, where the lyrics have one. On until switched off.
+#define SGKeyLiveActivityTranslation @"spotifyglass.liveActivity.translation"
 // What the keys were called while this was the redesign's alone; LiveActivity.x's %ctor moves them over.
 #define SGKeyLiveActivityWas @"spotifyglass.redesign.liveActivity"
 #define SGKeyLiveActivityViewWas @"spotifyglass.redesign.liveActivity.view"

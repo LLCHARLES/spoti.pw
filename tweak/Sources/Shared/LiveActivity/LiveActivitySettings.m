@@ -11,8 +11,12 @@ UIViewController *SGLiveActivitySettingsPage(void) {
     SGModRow *on = SGOptionRow(@"Live Activity", nil, SGKeyLiveActivity);
     on.changed = ^(BOOL value) { SGSetLiveActivityEnabled(value); };
     SGModRow *view = SGChoiceRow(@"Shows", nil, SGKeyLiveActivityView, viewNames(), SGLiveActivityLyrics);
+    SGModRow *translation = SGSwitchRow(@"Translation", @"Under the line, where the lyrics have one", SGKeyLiveActivityTranslation);
+    translation.visible = ^BOOL { return SGInt(SGKeyLiveActivityView, SGLiveActivityLyrics) == SGLiveActivityLyrics; };
     return [[SGModPage alloc] initWithTitle:@"Live Activity" intro:nil sections:@[
-        SGSection(nil, @[on, view]),
+        SGNotedSection(nil, @[on, view, translation],
+                       @"The card takes the cover's colour and shows how far into the song you are. It also appears on Apple Watch, "
+                        "in CarPlay and in StandBy, where iOS shows it."),
     ] footer:nil];
 }
 

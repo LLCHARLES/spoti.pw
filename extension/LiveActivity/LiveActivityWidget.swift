@@ -13,6 +13,32 @@ private let green = Color(red: 0.12, green: 0.84, blue: 0.38)
 private let idle = Color.white.opacity(0.08)
 
 private typealias State = SGLyricsAttributes.ContentState
+
+// The cover's colour, or the green the card had before; dim, for under the white text.
+private func coverColour(_ state: State, dim: Bool) -> Color {
+    guard state.tint >= 0 else { return dim ? Color.black.opacity(0.75) : green }
+    let red = Double((state.tint >> 16) & 0xFF) / 255, greenPart = Double((state.tint >> 8) & 0xFF) / 255, blue = Double(state.tint & 0xFF) / 255
+    let scale = dim ? 0.38 : 1
+    return Color(red: red * scale, green: greenPart * scale, blue: blue * scale).opacity(dim ? 0.92 : 1)
+}
+
+// A thin bar under every view: running on its own while the track plays, standing still while paused.
+private struct TrackProgress: View {
+    let state: State
+
+    var body: some View {
+        Group {
+            if let start = state.trackStart, let end = state.trackEnd, end > start {
+                ProgressView(timerInterval: start...end, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+            } else {
+                ProgressView(value: min(max(state.progress, 0), 1))
+            }
+        }
+        .progressViewStyle(.linear)
+        .tint(.white.opacity(0.85))
+        .scaleEffect(x: 1, y: 0.6, anchor: .center)
+    }
+}
 private typealias Tab = SGLyricsAttributes.Tab
 
 @main
@@ -43,12 +69,15 @@ extension SGLyricsAttributes.Tab {
 struct SGLyricsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SGLyricsAttributes.self) { context in
-            ContentView(state: context.state, upNext: 4)
+            VStack(alignment: .leading, spacing: 8) {
+                ContentView(state: context.state, upNext: context.state.translation.isEmpty ? 4 : 3)
+                TrackProgress(state: context.state)
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, context.state.view == .panel ? 12 : 16)
                 .padding(.vertical, 12)
                 .foregroundStyle(.white)
-                .activityBackgroundTint(Color.black.opacity(0.75))
+                .activityBackgroundTint(coverColour(context.state, dim: true))
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(URL(string: "spotify:"))
         } dynamicIsland: { context in
@@ -66,7 +95,7 @@ struct SGLyricsLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: "music.note")
-                    .foregroundStyle(green)
+                    .foregroundStyle(coverColour(context.state, dim: false))
             } compactTrailing: {
                 if let end = context.state.timerEnd, end > Date() {
                     Text(timerInterval: Date()...end, countsDown: true)
@@ -79,7 +108,7 @@ struct SGLyricsLiveActivity: Widget {
                 }
             } minimal: {
                 Image(systemName: "music.note")
-                    .foregroundStyle(green)
+                    .foregroundStyle(coverColour(context.state, dim: false))
             }
             .widgetURL(URL(string: "spotify:"))
         }
@@ -111,7 +140,14 @@ private struct LyricsView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
                 .direction(of: state.line)
-            if !state.nextLine.isEmpty {
+            if !state.translation.isEmpty {
+                Text(state.translation)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .direction(of: state.translation)
+            }
+            if !state.nextLine.isEmpty && state.translation.isEmpty {
                 Text(state.nextLine)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.45))
