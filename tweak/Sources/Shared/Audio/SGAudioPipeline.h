@@ -10,6 +10,7 @@ typedef enum {
     SGAudioStageSpeedPitch,
     SGAudioStageEffects,
     SGAudioStageHaptics,
+    SGAudioStageVisualizer,   // reads the finished sound only, last, after everything that changes it
     SGAudioStageCount
 } SGAudioStage;
 

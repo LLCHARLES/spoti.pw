@@ -12,12 +12,23 @@
 #import "Core/SGCore.h"
 #import "Redesigned/Kit/SGRKit.h"
 #import "Player.h"
+#import "Settings/SGModPage.h"
+#import "Shared/Visualizer/Visualizer.h"
+#import "Shared/Visualizer/SGVisualizerView.h"
 
 static const CGFloat kPausedScale = 0.84, kPausedScaleReduceMotion = 0.92;
 // The bar's 40pt cover lives in a tilt view of its own; the player's is 354.
 static const CGFloat kCoverMinWidth = 200;
 
-static char kPlateKey;
+static char kPlateKey, kRingKey;
+// With the visualizer the circle is this share of the cover's square, leaving the rest to the bars.
+static const CGFloat kVisualizerShare = 0.64;
+// One turn of the spinning cover, in seconds.
+static const CFTimeInterval kSpinTurn = 24;
+
+static BOOL visualizing(void) {
+    return SGFlag(SGRKeyPlayerVisualizer, NO);
+}
 static NSHashTable<UIView *> *sg_tilts;
 // The cover of each tilt view once found. A frame Spotify sets on a scaled view becomes its scaled
 // size, leaving bounds that no longer match the tilt view's, so the cover is not looked for by size again.
@@ -25,8 +36,9 @@ static NSMapTable<UIView *, UIView *> *sg_covers;
 
 static CGFloat currentScale(void) {
     SPTPlayerState *state = SGPlayerState();
-    if (!state.isPaused) return 1;
-    return SGRReduceMotion() ? kPausedScaleReduceMotion : kPausedScale;
+    CGFloat share = visualizing() ? kVisualizerShare : 1;
+    if (!state.isPaused) return share;
+    return share * (SGRReduceMotion() ? kPausedScaleReduceMotion : kPausedScale);
 }
 
 // The child of the tilt view the size of the cover.
@@ -51,6 +63,52 @@ static BOOL inCoverCell(UIView *tilt) {
     return NO;
 }
 
+// The ring of a tilt view, made the first time the visualizer is on for it, behind the cover and its plate.
+static SGVisualizerView *ringIn(UIView *tilt, BOOL make) {
+    SGVisualizerView *ring = objc_getAssociatedObject(tilt, &kRingKey);
+    if (ring || !make) return ring;
+    ring = [[SGVisualizerView alloc] initWithFrame:tilt.bounds];
+    [tilt insertSubview:ring atIndex:0];
+    objc_setAssociatedObject(tilt, &kRingKey, ring, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return ring;
+}
+
+// The spin turns what is inside the circle, not the cover itself, whose layer carries the paused shrink's
+// animation; it is held still while paused by stopping that layer's clock.
+static void spinCover(UIView *cover, BOOL spin, BOOL paused) {
+    CALayer *layer = cover.subviews.firstObject.layer;
+    if (!layer) return;
+    CAAnimation *existing = [layer animationForKey:@"sg.spin"];
+    if (!spin) {
+        if (existing) [layer removeAnimationForKey:@"sg.spin"];
+        layer.speed = 1;
+        layer.timeOffset = 0;
+        return;
+    }
+    if (!existing) {
+        CABasicAnimation *turn = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+        turn.fromValue = @0;
+        turn.toValue = @(2 * M_PI);
+        turn.duration = kSpinTurn;
+        turn.repeatCount = HUGE_VALF;
+        turn.additive = YES;
+        turn.removedOnCompletion = NO;
+        [layer addAnimation:turn forKey:@"sg.spin"];
+    }
+    // Paused, the layer's clock stops where it is; playing again, it runs on from there.
+    if (paused && layer.speed != 0) {
+        CFTimeInterval at = [layer convertTime:CACurrentMediaTime() fromLayer:nil];
+        layer.speed = 0;
+        layer.timeOffset = at;
+    } else if (!paused && layer.speed == 0) {
+        CFTimeInterval at = layer.timeOffset;
+        layer.speed = 1;
+        layer.timeOffset = 0;
+        layer.beginTime = 0;
+        layer.beginTime = [layer convertTime:CACurrentMediaTime() fromLayer:nil] - at;
+    }
+}
+
 static void scaleCover(UIView *tilt, CGFloat scale) {
     UIView *cover = coverIn(tilt);
     if (!cover) return;
@@ -58,6 +116,11 @@ static void scaleCover(UIView *tilt, CGFloat scale) {
     CGAffineTransform transform = CGAffineTransformMakeScale(scale, scale);
     cover.transform = transform;
     plate.transform = transform;
+    BOOL ringed = visualizing();
+    SGVisualizerView *ring = ringIn(tilt, ringed);
+    ring.hidden = !ringed;
+    ring.innerRadius = ringed ? cover.bounds.size.width / 2 * scale : 0;
+    spinCover(cover, ringed && SGEnabled(SGRKeyPlayerVisualizerSpin), SGPlayerState().isPaused);
 }
 
 #pragma mark - where the cover is
@@ -118,10 +181,11 @@ static void showCover(UIView *tilt) {
     if (gone) [sg_gone addObject:tilt];
     else if ([sg_gone containsObject:tilt]) [sg_gone removeObject:tilt];
     else return;
-    UIView *plate = SGRShadowPlateIn(tilt, &kPlateKey);
+    UIView *plate = SGRShadowPlateIn(tilt, &kPlateKey), *ring = ringIn(tilt, NO);
     CGFloat alpha = gone ? 0 : 1;
     if (cover.alpha != alpha) cover.alpha = alpha;
     if (plate.alpha != alpha) plate.alpha = alpha;
+    if (ring && ring.alpha != alpha) ring.alpha = alpha;
     if (tilt.accessibilityElementsHidden != clip) tilt.accessibilityElementsHidden = clip;
 }
 
@@ -150,11 +214,12 @@ void SGRPlayerSetCoverHidden(BOOL hidden) {
         CGFloat shown = 0;
         NSTimeInterval left = 0;
         SGRPlayerAnimatedShowing(&shown, &left);
-        UIView *tilt = was.superview, *plate = SGRShadowPlateIn(tilt, &kPlateKey);
+        UIView *tilt = was.superview, *plate = SGRShadowPlateIn(tilt, &kPlateKey), *ring = ringIn(tilt, NO);
         if (left > 0) {
             [UIView performWithoutAnimation:^{
                 was.alpha = 1 - shown;
                 plate.alpha = 1 - shown;
+                ring.alpha = 1 - shown;
             }];
         }
         if (tilt) fadeCovers(@[tilt], left);
@@ -193,11 +258,21 @@ static void scaleEveryCover(BOOL animated) {
     if (!CGSizeEqualToSize(cover.bounds.size, bounds.size)) cover.bounds = (CGRect){cover.bounds.origin, bounds.size};
     if (!CGPointEqualToPoint(cover.center, middle)) cover.center = middle;
 
-    cover.layer.cornerRadius = SGRRadiusArtwork;
-    cover.layer.cornerCurve = kCACornerCurveContinuous;
+    // With the visualizer the cover is a circle, and so is its shadow.
+    CGFloat radius = visualizing() ? bounds.size.width / 2 : SGRRadiusArtwork;
+    cover.layer.cornerRadius = radius;
+    cover.layer.cornerCurve = visualizing() ? kCACornerCurveCircular : kCACornerCurveContinuous;
     cover.clipsToBounds = YES;
     SGRShadowPlate *plate = SGRShadowPlateIn(tilt, &kPlateKey);
+    if (plate.cornerRadius != radius) plate.cornerRadius = radius;
     plate.bounds = cover.bounds;
+    SGVisualizerView *ring = ringIn(tilt, visualizing());
+    if (ring) {
+        ring.bounds = (CGRect){CGPointZero, bounds.size};
+        ring.center = middle;
+        ring.accent = SGRAccentColor() ?: [UIColor colorWithRed:0.12 green:0.84 blue:0.38 alpha:1];
+        if (ring.superview == tilt && tilt.subviews.firstObject != ring) [tilt sendSubviewToBack:ring];
+    }
     plate.center = cover.center;
     // The same value an animation in flight is heading to, so a layout pass never cuts one short.
     scaleCover(tilt, currentScale());
@@ -254,6 +329,12 @@ static SGRPlayerArtworkWatcher *sg_artworkWatcher;
     sg_covers = [NSMapTable weakToWeakObjectsMapTable];
     sg_gone = [NSHashTable weakObjectsHashTable];
     sg_artworkWatcher = [SGRPlayerArtworkWatcher new];
+    // The switch, the spin and the ring's own settings apply at once to every cover.
+    [NSNotificationCenter.defaultCenter addObserverForName:SGVisualizerSettingsDidChangeNotification object:nil queue:NSOperationQueue.mainQueue
+                                                usingBlock:^(NSNotification *note) {
+        for (UIView *tilt in sg_tilts.allObjects) [tilt setNeedsLayout];
+        scaleEveryCover(YES);
+    }];
     SGAddPlayerStateObserver(sg_artworkWatcher);
     SGRObservePlayerTransition(sg_artworkWatcher, ^(id owner) {
         scaleEveryCover(YES);

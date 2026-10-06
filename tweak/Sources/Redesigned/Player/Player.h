@@ -37,6 +37,14 @@
 
 @class SGRArtworkField, SGModSection;
 
+#pragma mark - the visualizer (PlayerArtwork.x)
+
+// The cover turned into a circle inside a ring of bars that moves with the music (Shared/Visualizer), NCS
+// style, and the circle slowly turning while the song plays. Both apply at once.
+#define SGRKeyPlayerVisualizer @"spotifyglass.redesign.player.visualizer"        // off until switched on
+#define SGRKeyPlayerVisualizerSpin @"spotifyglass.redesign.player.visualizer.spin"   // on until switched off
+NSArray<SGModSection *> *SGRPlayerVisualizerSections(void);
+
 #pragma mark - the background (PlayerBackgroundSettings.m)
 
 // What moves behind the player, picked on Mod Settings' Player page (Redesigned/NowPlayingBar/

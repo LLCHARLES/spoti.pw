@@ -10,5 +10,5 @@ NSArray<SGModSection *> *SGRNowPlayingSections(void) {
         SGSection(nil, @[
             SGHideRow(@"Hide the device button", nil, SGRHideBarConnect),
         ]),
-    ] arrayByAddingObjectsFromArray:SGRPlayerBackgroundSections()];
+    ] arrayByAddingObjectsFromArray:[SGRPlayerBackgroundSections() arrayByAddingObjectsFromArray:SGRPlayerVisualizerSections()]];
 }

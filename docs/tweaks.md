@@ -160,6 +160,16 @@ Shared:
                   family (or SF's Rounded, Serif or Mono design) at the same size and nearest weight, for the
                   system's faces and Spotify's SpotifyMix and Circular ones only, so icon fonts are left alone;
                   the new font is made with the hooks stood down by a per-thread flag, and cached
+    Visualizer/   a ring of bars moving with the music, NCS style: the finished sound off Audio/SGAudioPipeline's last
+                  stage (SGAudioStageVisualizer, VisualizerTap.x) into a single writer ring, only while a ring is on
+                  screen; once a frame the newest 2048 samples go through a Hann window and an FFT into log spaced
+                  bands against the loudest lately (SGSpectrum.m, plain C, harness/visualizer/), following
+                  everything, the beat or the bass at a strength, as Music Haptics does or with Music Haptics' own
+                  settings; SGVisualizerView draws them as bars, a wave or dots on a display link run the lyrics'
+                  way (60 to 120 Hz, down during player transitions and off screen). The redesigned player rings
+                  its cover with one (PlayerArtwork.x, Player page > Visualizer): the cover a circle at 64 % with a
+                  round shadow, the ring behind it in the tilt view fading with it, and the picture inside slowly
+                  turning while the song plays
     HeadMotion/   AirPods head tracking, one CMHeadphoneMotionManager the features share, running only while one asks
                   (SGHeadMotion.h); NSMotionUsageDescription is added to the IPA by merge-local-network-plist.py
     HeadGestures/ AirPods gestures (Mod Settings > AirPods gestures): a double nod or a shake of the head runs the
