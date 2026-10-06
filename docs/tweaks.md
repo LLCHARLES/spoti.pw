@@ -147,6 +147,11 @@ Shared:
                   and out with the level, so a bypass still lands on the untouched original (harness/sing/dsp_test.c)
     HeadMotion/   AirPods head tracking, one CMHeadphoneMotionManager the features share, running only while one asks
                   (SGHeadMotion.h); NSMotionUsageDescription is added to the IPA by merge-local-network-plist.py
+    HeadGestures/ AirPods gestures (Mod Settings > AirPods gestures): a double nod or a shake of the head runs the
+                  player command picked for it (play or pause, next, previous, start over), skips only while something
+                  plays; SGHeadGestureDetector.m, plain C, tells a deliberate gesture -- three or more quick swings on
+                  one axis, begun and ended in stillness -- from nodding along, which never rests. Tested on the Mac or
+                  Linux against harness/headgestures/
     Player/       the player's open and close announced (PlayerEvents.x), what the player is doing read through
                   one hook for every feature that wants it (PlayerState.x), the lock screen widget's flags, and in the
                   more button's menu Speed and pitch: both done to Spotify's audio by Apple's time and pitch unit, put

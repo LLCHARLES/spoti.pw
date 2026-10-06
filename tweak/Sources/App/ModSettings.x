@@ -25,6 +25,7 @@
 #import "Shared/Flags/Flags.h"
 #import "Shared/AudioEffects/AudioEffectsPage.h"
 #import "Shared/LiveActivity/LiveActivity.h"
+#import "Shared/HeadGestures/HeadGestures.h"
 #import "App/About/About.h"
 #import "App/Donate/Donate.h"
 #import "Pages.h"
@@ -70,6 +71,10 @@ static UIViewController *modSettingsPage(void) {
         liveActivity.value = ^NSString *{ return SGLiveActivitySummary(); };
         [parts addObject:liveActivity];
     }
+    // AirPods gestures read the head, not a screen, so both looks have them.
+    SGModRow *headGestures = pageRow(@"AirPods gestures", @"airpodspro", ^UIViewController *{ return SGHeadGesturesSettingsPage(); });
+    headGestures.value = ^NSString *{ return SGHeadGesturesSummary(); };
+    [parts addObject:headGestures];
     if (SGRedesignedUIStored()) [parts addObject:pageRow(@"Albums", @"square.stack", ^UIViewController *{ return SGRAlbumSettingsPage(); })];
     else [parts addObject:pageRow(@"Home & Library", @"house", ^UIViewController *{ return SGHomeSettingsPage(); })];
     [sections addObject:SGAppearanceSection()];
