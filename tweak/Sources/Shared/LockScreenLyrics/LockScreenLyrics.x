@@ -5,6 +5,7 @@
 // move, so working it out four times a second only wakes the phone. The lock screen keeps the line it
 // was left on until the sound starts again.
 #import <MediaPlayer/MediaPlayer.h>
+#import <CoreImage/CoreImage.h>
 #import "Core/SGCore.h"
 #import "LockScreenLyrics.h"
 #import "Shared/Lyrics/Lyrics.h"
@@ -23,6 +24,7 @@ static NSObject *sg_lock;
 static NSDictionary *sg_spotifyInfo;
 static CFAbsoluteTime sg_spotifyInfoAt;
 static NSString *sg_shownLine;
+static SGLockScreenLyricsPlace sg_place;
 static BOOL sg_resending;
 static NSTimer *sg_timer;
 
@@ -65,8 +67,11 @@ static double elapsedAt(NSDictionary *info, CFAbsoluteTime reportedAt, CFAbsolut
     return [info[MPNowPlayingInfoPropertyElapsedPlaybackTime] doubleValue] + rate * (now - reportedAt);
 }
 
-// nil between lines and for a track without synced lyrics, plain text included.
-static NSString *lineFor(NSDictionary *info, double elapsed) {
+// nil between lines and for a track without synced lyrics, plain text included. `full` and `next` are the
+// whole line and the one after it, for the artwork.
+static NSString *lineFor(NSDictionary *info, double elapsed, NSString **full, NSString **next) {
+    if (full) *full = nil;
+    if (next) *next = nil;
     SPTPlayerState *state = [(id<SPTPlayer>)SGKaraokePlayer() state];
     // The player's track can lag behind the now playing info; its lyrics would then be another song's.
     if (![state.track.trackTitle isEqualToString:info[MPMediaItemPropertyTitle]]) return nil;
@@ -83,6 +88,8 @@ static NSString *lineFor(NSDictionary *info, double elapsed) {
     if (index < 0) return nil;
     BOOL nextFarOff = index + 1 == (NSInteger)lines.count || lines[index + 1].start - position > kBreakMs;
     if (position > lines[index].end + kBreakMs && nextFarOff) return nil;
+    if (full) *full = SGKaraokeLineText(lines[index]);
+    if (next && !nextFarOff) *next = SGKaraokeLineText(lines[index + 1]);
     NSString *shown = nil;
     for (NSArray<SGKaraokeWord *> *piece in piecesOf(lines[index])) {
         if (!shown || piece.firstObject.start <= position) shown = textOf(piece);
@@ -90,9 +97,85 @@ static NSString *lineFor(NSDictionary *info, double elapsed) {
     return shown;
 }
 
-static NSDictionary *withLine(NSDictionary *info, NSString *line, double elapsed) {
+#pragma mark - the lyrics as the artwork
+
+// The cover blurred and darkened, made once per cover Spotify hands over.
+static NSObject *sg_artworkLock;
+static __weak MPMediaItemArtwork *sg_backdropOf;
+static UIImage *sg_backdrop;
+static const CGFloat kArtworkSide = 600;
+
+static UIImage *backdropFor(MPMediaItemArtwork *cover) {
+    @synchronized (sg_artworkLock) {
+        if (cover && cover == sg_backdropOf && sg_backdrop) return sg_backdrop;
+    }
+    CGSize size = CGSizeMake(kArtworkSide, kArtworkSide);
+    UIImage *image = [cover imageWithSize:size];
+    UIImage *backdrop = nil;
+    if (image.CGImage) {
+        static CIContext *context;
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{ context = [CIContext contextWithOptions:nil]; });
+        CIImage *input = [[CIImage imageWithCGImage:image.CGImage] imageByClampingToExtent];
+        CIImage *blurred = [input imageByApplyingGaussianBlurWithSigma:28];
+        CGRect extent = [CIImage imageWithCGImage:image.CGImage].extent;
+        CGImageRef cg = [context createCGImage:blurred fromRect:extent];
+        if (cg) {
+            backdrop = [UIImage imageWithCGImage:cg];
+            CGImageRelease(cg);
+        }
+    }
+    @synchronized (sg_artworkLock) {
+        sg_backdropOf = cover;
+        sg_backdrop = backdrop;
+    }
+    return backdrop;
+}
+
+static UIImage *lyricsImage(UIImage *backdrop, NSString *line, NSString *next) {
+    CGSize size = CGSizeMake(kArtworkSide, kArtworkSide);
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+    format.scale = 1;
+    return [[[UIGraphicsImageRenderer alloc] initWithSize:size format:format] imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        CGRect bounds = (CGRect){CGPointZero, size};
+        if (backdrop) [backdrop drawInRect:bounds];
+        [[UIColor colorWithWhite:0 alpha:backdrop ? 0.5 : 1] setFill];
+        UIRectFillUsingBlendMode(bounds, kCGBlendModeNormal);
+        CGFloat side = 44, width = size.width - 2 * side;
+        NSMutableParagraphStyle *paragraph = [NSMutableParagraphStyle new];
+        paragraph.lineBreakMode = NSLineBreakByWordWrapping;
+        paragraph.lineSpacing = 2;
+        NSDictionary *lineStyle = @{NSFontAttributeName: [UIFont systemFontOfSize:52 weight:UIFontWeightBold],
+                                    NSForegroundColorAttributeName: UIColor.whiteColor, NSParagraphStyleAttributeName: paragraph};
+        NSDictionary *nextStyle = @{NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightBold],
+                                    NSForegroundColorAttributeName: [UIColor colorWithWhite:1 alpha:0.45], NSParagraphStyleAttributeName: paragraph};
+        CGRect lineBox = [line boundingRectWithSize:CGSizeMake(width, size.height * 0.62) options:NSStringDrawingUsesLineFragmentOrigin attributes:lineStyle context:nil];
+        CGRect nextBox = next.length ? [next boundingRectWithSize:CGSizeMake(width, size.height * 0.25) options:NSStringDrawingUsesLineFragmentOrigin attributes:nextStyle context:nil] : CGRectZero;
+        CGFloat gap = next.length ? 22 : 0;
+        CGFloat lineHeight = MIN(ceil(lineBox.size.height), size.height * 0.62), nextHeight = MIN(ceil(nextBox.size.height), size.height * 0.25);
+        CGFloat top = MAX(side, (size.height - lineHeight - gap - nextHeight) / 2);
+        [line drawWithRect:CGRectMake(side, top, width, lineHeight) options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine attributes:lineStyle context:nil];
+        if (next.length) {
+            [next drawWithRect:CGRectMake(side, top + lineHeight + gap, width, nextHeight) options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine attributes:nextStyle context:nil];
+        }
+    }];
+}
+
+// The line and the next one over the cover, drawn when the lock screen asks for the picture.
+static MPMediaItemArtwork *lyricsArtwork(MPMediaItemArtwork *cover, NSString *line, NSString *next) {
+    CGSize size = CGSizeMake(kArtworkSide, kArtworkSide);
+    return [[MPMediaItemArtwork alloc] initWithBoundsSize:size requestHandler:^UIImage *(CGSize wanted) {
+        return lyricsImage(backdropFor(cover), line, next);
+    }];
+}
+
+static NSDictionary *withLine(NSDictionary *info, NSString *line, NSString *full, NSString *next, double elapsed) {
     NSMutableDictionary *shown = [info mutableCopy];
-    if (line) shown[MPMediaItemPropertyArtist] = line;
+    if (line && sg_place != SGLockScreenLyricsArtwork) shown[MPMediaItemPropertyArtist] = line;
+    if (full.length && sg_place != SGLockScreenLyricsArtist) {
+        id cover = info[MPMediaItemPropertyArtwork];
+        shown[MPMediaItemPropertyArtwork] = lyricsArtwork([cover isKindOfClass:MPMediaItemArtwork.class] ? cover : nil, full, next);
+    }
     // iOS reads a resent elapsed time as the position now, so Spotify's older one would jump the bar back.
     shown[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(elapsed);
     return shown;
@@ -108,11 +191,14 @@ static void tick(void) {
     if (!info[MPNowPlayingInfoPropertyElapsedPlaybackTime]) return;
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     double elapsed = elapsedAt(info, reportedAt, now);
-    NSString *line = lineFor(info, elapsed);
-    if (line == sg_shownLine || [line isEqualToString:sg_shownLine]) return;
-    sg_shownLine = line;
+    NSString *full, *next;
+    NSString *line = lineFor(info, elapsed, &full, &next);
+    // What is on show: the artist row's piece and, for the artwork, the whole line and the next.
+    NSString *key = [NSString stringWithFormat:@"%@\n%@\n%@", line ?: @"", sg_place != SGLockScreenLyricsArtist ? full ?: @"" : @"", sg_place != SGLockScreenLyricsArtist ? next ?: @"" : @""];
+    if ([key isEqualToString:sg_shownLine]) return;
+    sg_shownLine = key;
     sg_resending = YES;
-    MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = withLine(info, line, elapsed);
+    MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = withLine(info, line, full, next, elapsed);
     sg_resending = NO;
 }
 
@@ -158,9 +244,10 @@ static BOOL playingBy(NSDictionary *info) {
     }
     setTicking(playing);
     double elapsed = elapsedAt(info, now, now);
-    NSString *line = lineFor(info, elapsed);
-    sg_shownLine = line;
-    %orig(withLine(info, line, elapsed));
+    NSString *full, *next;
+    NSString *line = lineFor(info, elapsed, &full, &next);
+    sg_shownLine = [NSString stringWithFormat:@"%@\n%@\n%@", line ?: @"", sg_place != SGLockScreenLyricsArtist ? full ?: @"" : @"", sg_place != SGLockScreenLyricsArtist ? next ?: @"" : @""];
+    %orig(withLine(info, line, full, next, elapsed));
 }
 
 - (NSDictionary *)nowPlayingInfo {
@@ -175,6 +262,8 @@ static BOOL playingBy(NSDictionary *info) {
 %ctor {
     if (!SGFlag(SGKeyLockScreenLyrics, NO)) return;
     sg_lock = [NSObject new];
+    sg_artworkLock = [NSObject new];
+    sg_place = (SGLockScreenLyricsPlace)MAX(0, MIN(2, SGInt(SGKeyLockScreenLyricsPlace, SGLockScreenLyricsArtist)));
     %init;
     // The timer waits for Spotify to report a playing track; nothing before that has a line to show.
     SGLog(@"lock screen lyrics: on");

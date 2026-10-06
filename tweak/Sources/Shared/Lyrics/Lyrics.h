@@ -14,6 +14,7 @@
 // being where translations show), and whether lines timed only by the line are swept word by word.
 SGModSection *SGLyricsSourcesSection(BOOL namingSource);
 SGModRow *SGLockScreenLyricsRow(void);
+SGModRow *SGLockScreenLyricsPlaceRow(void);   // where the line shows, while the switch is on
 SGModRow *SGLyricsTranslationLanguageRow(void);
 SGModRow *SGLyricsWordTimingRow(void);
 

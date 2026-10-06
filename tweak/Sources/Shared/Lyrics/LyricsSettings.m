@@ -21,7 +21,15 @@ SGModSection *SGLyricsSourcesSection(BOOL namingSource) {
 }
 
 SGModRow *SGLockScreenLyricsRow(void) {
-    return SGOptionRow(@"Lock screen lyrics", @"Current line in place of the artist", SGKeyLockScreenLyrics);
+    return SGOptionRow(@"Lock screen lyrics", @"The line being sung on the lock screen", SGKeyLockScreenLyrics);
+}
+
+SGModRow *SGLockScreenLyricsPlaceRow(void) {
+    SGModRow *row = SGChoiceRow(@"Show the line", nil, SGKeyLockScreenLyricsPlace, @[@"In place of the artist", @"As the artwork", @"Both"],
+                                SGLockScreenLyricsArtist);
+    row.choiceNotes = @[@"The line under the title", @"The line and the next over the cover, blurred", @"Under the title and over the cover"];
+    row.visible = ^BOOL { return SGFlag(SGKeyLockScreenLyrics, NO); };
+    return row;
 }
 
 SGModRow *SGLyricsTranslationLanguageRow(void) {
