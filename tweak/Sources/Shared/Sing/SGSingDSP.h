@@ -8,7 +8,8 @@
 enum { SGSingSpatialLine = 256 };
 
 typedef struct {
-    float gain, targetGain, step;
+    float gain, targetGain, step;                     // the vocals'
+    float instrumental, targetInstrumental, instrumentalStep;   // the rest's, below 1 only towards vocals only
     uint32_t remaining;
     double sampleRate;
     // Spatial voice: how much of the vocals goes through the head-tracked pan (0 to 1, ramped with the

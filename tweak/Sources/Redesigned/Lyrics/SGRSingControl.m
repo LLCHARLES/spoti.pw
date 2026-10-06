@@ -107,7 +107,9 @@ static SGRSingLook lookOf(SGSingState state) {
     _value = SGSingClampLevel(value);
     // Rounded end labels must mean the actual endpoint, including subpixel touch coordinates.
     if (_value < SGSingMinimumVocalLevel + 0.005f) _value = SGSingMinimumVocalLevel;
-    if (_value > 0.995f) _value = 1;
+    // The original mix and vocals only are where a finger means to stop, near enough.
+    if (fabsf(_value - 1) < 0.01f) _value = 1;
+    if (_value > SGSingVocalsOnlyLevel - 0.01f) _value = SGSingVocalsOnlyLevel;
 }
 - (void)accessibilityIncrement {
     if (!self.enabled) return;
@@ -313,12 +315,15 @@ static SGRSingLook lookOf(SGSingState state) {
 - (void)describe {
     SGSingState state = _shown;
     SGRSingLook look = lookOf(state);
-    BOOL original = _slider.value >= 1;
-    _slider.accessibilityValue = original ? @"Original" : [NSString stringWithFormat:@"%.0f percent", _slider.value * 100];
+    BOOL original = _slider.value == 1, vocalsOnly = _slider.value >= SGSingVocalsOnlyLevel;
+    NSString *spoken = vocalsOnly ? @"Vocals only" : original ? @"Original"
+        : _slider.value > 1 ? [NSString stringWithFormat:@"Instrumental %.0f percent", (SGSingVocalsOnlyLevel - _slider.value) * 100]
+        : [NSString stringWithFormat:@"%.0f percent", _slider.value * 100];
+    _slider.accessibilityValue = spoken;
     _button.accessibilityLabel = @"Sing";
     _button.accessibilityValue = state == SGSingPreparing ? @"Preparing Sing" : state == SGSingRecovering ? @"Restoring Sing"
         : state == SGSingDraining ? @"Turning Sing off" : state == SGSingFailed ? @"Sing stopped"
-        : look.on ? (original ? @"On, original vocals" : [NSString stringWithFormat:@"On, %.0f percent vocals", _slider.value * 100])
+        : look.on ? (original ? @"On, original vocals" : [@"On, " stringByAppendingString:spoken.lowercaseString])
         : @"Off";
     _button.accessibilityHint = state == SGSingPreparing ? @"Tap to cancel." : state == SGSingDraining ? @"Tap to turn Sing back on."
         : state == SGSingFailed ? @"Tap to hear why Sing stopped."

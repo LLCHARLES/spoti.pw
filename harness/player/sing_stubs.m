@@ -14,7 +14,7 @@ BOOL SGSingCanRetry(void) { return ![NSUserDefaults.standardUserDefaults boolFor
 float SGSingVocalLevel(void) { return level; }
 float SGSingReducedLevel(void) { return reduced; }
 static void changed(void) { [NSNotificationCenter.defaultCenter postNotificationName:SGSingDidChangeNotification object:nil]; }
-void SGSingSetVocalLevel(float value) { level = SGSingClampLevel(value); if (level < 1) reduced = level; changed(); }
+void SGSingSetVocalLevel(float value) { level = SGSingClampLevel(value); if (level != 1) reduced = level; changed(); }
 void SGSingSetEnabled(BOOL enabled) {
     if (enabled && !SGSingCanRetry()) { state = SGSingFailed; changed(); return; }
     NSUInteger ticket = ++generation;

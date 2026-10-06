@@ -25,11 +25,20 @@ float SGSingSpatialAzimuth(void) {
     return radians;
 }
 
-static float gain(float level) { float value = SGSingClampLevel(level); return value * value; }
-static void ramp(SGSingMixer *m, float to, double seconds) {
+// Past the original mix the vocals stay whole and the instrumental fades, on the same curve.
+static float gain(float level) { float value = fminf(1, SGSingClampLevel(level)); return value * value; }
+static float instrumental(float level) {
+    float value = SGSingClampLevel(level);
+    if (value <= 1) return 1;
+    float left = SGSingVocalsOnlyLevel - value;
+    return left * left;
+}
+static void ramp(SGSingMixer *m, float to, float instrumentalTo, double seconds) {
     m->targetGain = to;
+    m->targetInstrumental = instrumentalTo;
     m->remaining = (uint32_t)fmax(1, m->sampleRate * seconds);
     m->step = (to - m->gain) / m->remaining;
+    m->instrumentalStep = (instrumentalTo - m->instrumental) / m->remaining;
 }
 static void rampSpatial(SGSingMixer *m, float to, double seconds) {
     if (to == m->spatialTarget && (m->spatialRemaining || m->spatial == to)) return;
@@ -40,15 +49,16 @@ static void rampSpatial(SGSingMixer *m, float to, double seconds) {
 void SGSingMixerInit(SGSingMixer *m, double rate, float level) {
     memset(m, 0, sizeof *m);
     m->gain = gain(level); m->targetGain = gain(level);
+    m->instrumental = instrumental(level); m->targetInstrumental = instrumental(level);
     m->sampleRate = isfinite(rate) && rate >= 8000 && rate <= 192000 ? rate : 44100;
 }
 void SGSingMixerSetLevel(SGSingMixer *m, float level) {
-    float target = gain(level);
-    if (target != m->targetGain) ramp(m, target, kLevelRampSeconds);
+    float target = gain(level), rest = instrumental(level);
+    if (target != m->targetGain || rest != m->targetInstrumental) ramp(m, target, rest, kLevelRampSeconds);
     rampSpatial(m, SGSingSpatialEnabled() ? 1 : 0, kLevelRampSeconds);
 }
 void SGSingMixerBypass(SGSingMixer *m) {
-    ramp(m, 1, kBypassRampSeconds);
+    ramp(m, 1, 1, kBypassRampSeconds);
     rampSpatial(m, 0, kBypassRampSeconds);
 }
 
@@ -94,7 +104,8 @@ void SGSingMixerProcess(SGSingMixer *m, const float *original, const float *voca
     for (uint32_t i = 0; i < frames; i++) {
         if (m->remaining) {
             m->gain += m->step;
-            if (!--m->remaining) m->gain = m->targetGain;
+            m->instrumental += m->instrumentalStep;
+            if (!--m->remaining) { m->gain = m->targetGain; m->instrumental = m->targetInstrumental; }
         }
         if (m->spatialRemaining) {
             m->spatial += m->spatialStep;
@@ -112,12 +123,14 @@ void SGSingMixerProcess(SGSingMixer *m, const float *original, const float *voca
             spatialize(m, vocal[0], vocal[1], &placed[0], &placed[1]);
             for (unsigned c = 0; c < 2; c++) {
                 float voice = vocal[c] + (placed[c] - vocal[c]) * m->spatial;
-                float value = source[c] - vocal[c] + m->gain * voice;
+                float value = (source[c] - vocal[c]) * m->instrumental + m->gain * voice;
                 out[at + c] = fmaxf(-1, fminf(1, value));
             }
         } else {
             for (unsigned c = 0; c < 2; c++) {
-                float value = source[c] - (1 - m->gain) * vocal[c];
+                // The instrumental whole, the original's own arithmetic, so a bypass lands on it exactly.
+                float value = m->instrumental == 1 ? source[c] - (1 - m->gain) * vocal[c]
+                                                   : (source[c] - vocal[c]) * m->instrumental + m->gain * vocal[c];
                 out[at + c] = fmaxf(-1, fminf(1, value)); // bounded peak limiter, no per-stem normalization
             }
         }

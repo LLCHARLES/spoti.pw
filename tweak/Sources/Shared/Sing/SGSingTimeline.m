@@ -142,7 +142,7 @@ uint32_t SGSingTimelineRead(SGSingTimeline *t, float *out, uint32_t frames) {
             result[0] = dry[0]; result[1] = dry[1];
             // A short last vocal packet can exhaust coverage inside a large render quantum.
             // Keep the mixer's next recovery ramp anchored to the dry gain actually emitted.
-            if (t->mixer.gain != 1 || t->mixer.remaining) SGSingMixerInit(&t->mixer, SGSingSampleRate, 1);
+            if (t->mixer.gain != 1 || t->mixer.instrumental != 1 || t->mixer.remaining) SGSingMixerInit(&t->mixer, SGSingSampleRate, 1);
         }
         out[i*2] = result[0]; out[i*2+1] = result[1];
     }

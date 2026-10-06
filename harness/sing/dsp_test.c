@@ -61,9 +61,13 @@ static void mixing(void) {
     assert(fabsf(out[0] - 0.22f) < 1e-6f && fabsf(out[1] - 0.18f) < 1e-6f);
     assert(fabsf(m.gain - .04f) < 1e-6f); // minimum 20%, including non-UI requests
     SGSingMixerSetLevel(&m, -10); assert(fabsf(m.targetGain - .04f) < 1e-6f);
-    assert(SGSingLevelFromPosition(0) == .2f && SGSingLevelFromPosition(1) == 1);
-    assert(fabsf(SGSingLevelFromPosition(.5f) - .6f) < 1e-6f);
-    assert(SGSingPositionFromLevel(.2f) == 0 && SGSingPositionFromLevel(1) == 1);
+    // Four fifths up is the original mix, the top vocals alone.
+    assert(SGSingLevelFromPosition(0) == .2f && SGSingLevelFromPosition(1) == SGSingVocalsOnlyLevel);
+    assert(fabsf(SGSingLevelFromPosition(SGSingOriginalPosition) - 1) < 1e-6f);
+    assert(fabsf(SGSingLevelFromPosition(.4f) - .6f) < 1e-6f);
+    assert(SGSingPositionFromLevel(.2f) == 0 && fabsf(SGSingPositionFromLevel(1) - SGSingOriginalPosition) < 1e-6f);
+    assert(fabsf(SGSingPositionFromLevel(SGSingVocalsOnlyLevel) - 1) < 1e-6f);
+    for (float p = 0; p <= 1; p += 0.05f) assert(fabsf(SGSingPositionFromLevel(SGSingLevelFromPosition(p)) - p) < 1e-5f);
     assert(SGSingClampLevel(NAN) == 1);
     SGSingMixerSetLevel(&m, 1);
     float last = out[0];
@@ -88,6 +92,18 @@ static void mixing(void) {
     assert(out[0] == 0 && out[1] == 0);
     SGSingMixerSetLevel(&m, NAN);
     assert(m.targetGain == 1);
+    // Vocals only: the instrumental fades out and the vocals stay whole, and a bypass still lands on the original.
+    SGSingMixerInit(&m, 44100, 1);
+    SGSingMixerSetLevel(&m, SGSingVocalsOnlyLevel);
+    for (unsigned i = 0; i < 1323; i++) SGSingMixerProcess(&m, original, vocal, out, 1);
+    assert(fabsf(out[0] - vocal[0]) < 1e-6f && fabsf(out[1] - vocal[1]) < 1e-6f);
+    SGSingMixerSetLevel(&m, 1.5f);
+    for (unsigned i = 0; i < 1323; i++) SGSingMixerProcess(&m, original, vocal, out, 1);
+    assert(fabsf(out[0] - (0.25f * (original[0] - vocal[0]) + vocal[0])) < 1e-5f);
+    SGSingMixerBypass(&m);
+    for (unsigned i = 0; i < 5292; i++) SGSingMixerProcess(&m, original, vocal, out, 1);
+    assert(out[0] == original[0] && out[1] == original[1]);
+    assert(SGSingClampLevel(5) == SGSingVocalsOnlyLevel);
 }
 // Spatial voice: straight ahead it changes nothing, turned it moves the voice and only the voice, and a
 // bypass still lands exactly on the original.
