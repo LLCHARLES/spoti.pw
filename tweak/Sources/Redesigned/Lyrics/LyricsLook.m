@@ -48,6 +48,29 @@ static SGModRow *percentRow(NSString *title, NSString *key, double minimum, doub
         ^NSString *(double value) { return value == 0 ? @"Off" : [NSString stringWithFormat:@"%ld %%", lround(value)]; });
 }
 
+// A look in one tap: size, weight index, blur and unlit brightness, in the keys' own units.
+typedef struct { const char *name; const char *note; NSInteger size, weight, blur, dim; } SGRLyricsPreset;
+static const SGRLyricsPreset kPresets[] = {
+    {"Apple Music", "As the Music app has them", 100, 3, 100, 30},
+    {"Big and bold", "Larger and heavier, for across the room", 125, 4, 100, 25},
+    {"Clean", "No blur, every line sharp", 100, 3, 0, 35},
+    {"Soft", "Lighter, with more of the lines around showing", 92, 2, 60, 45},
+    {"Focus", "Only the sung line stands out", 105, 3, 180, 18},
+};
+
+static void applyPreset(const SGRLyricsPreset *preset) {
+    SGSetInt(SGRKeyLyricsLookSize, preset->size);
+    SGSetInt(SGRKeyLyricsLookWeight, preset->weight);
+    SGSetInt(SGRKeyLyricsLookBlur, preset->blur);
+    SGSetInt(SGRKeyLyricsLookDim, preset->dim);
+    changed();
+}
+
+static BOOL isPreset(const SGRLyricsPreset *preset) {
+    return SGInt(SGRKeyLyricsLookSize, 100) == preset->size && SGInt(SGRKeyLyricsLookWeight, kBold) == preset->weight
+        && SGInt(SGRKeyLyricsLookBlur, 100) == preset->blur && SGInt(SGRKeyLyricsLookDim, 30) == preset->dim;
+}
+
 static UIViewController *lookPage(void) {
     SGModRow *weight = SGChoiceRow(@"Weight", nil, SGRKeyLyricsLookWeight, weightNames(), kBold);
     weight.chosen = ^(NSInteger index) { changed(); };
@@ -58,7 +81,15 @@ static UIViewController *lookPage(void) {
         changed();
         [SGTopController().navigationController popViewControllerAnimated:YES];
     });
+    NSMutableArray<SGModRow *> *presets = [NSMutableArray array];
+    for (size_t i = 0; i < sizeof kPresets / sizeof *kPresets; i++) {
+        const SGRLyricsPreset *preset = &kPresets[i];
+        SGModRow *row = SGActionRow(@(preset->name), @(preset->note), ^{ applyPreset(preset); });
+        row.checked = ^BOOL { return isPreset(preset); };
+        [presets addObject:row];
+    }
     NSArray<SGModSection *> *sections = @[
+        SGNotedSection(@"Presets", presets, @"A preset sets everything below; move a slider to make it your own."),
         SGNotedSection(@"Text", @[percentRow(@"Size", SGRKeyLyricsLookSize, 60, 150, 5, 100), weight],
                        @"The size is a share of Apple Music's, which is 100 %. Pronunciations and translations follow the lyrics."),
         SGNotedSection(@"Lines", @[percentRow(@"Blur", SGRKeyLyricsLookBlur, 0, 200, 10, 100),
@@ -72,9 +103,10 @@ static UIViewController *lookPage(void) {
 SGModRow *SGRLyricsLookRow(void) {
     SGModRow *row = SGPageRow(@"Lyrics look", ^UIViewController *{ return lookPage(); });
     row.value = ^NSString *{
-        BOOL stock = SGInt(SGRKeyLyricsLookSize, 100) == 100 && SGInt(SGRKeyLyricsLookWeight, kBold) == kBold
-            && SGInt(SGRKeyLyricsLookBlur, 100) == 100 && SGInt(SGRKeyLyricsLookDim, 30) == 30;
-        return stock ? @"Apple Music" : @"Custom";
+        for (size_t i = 0; i < sizeof kPresets / sizeof *kPresets; i++) {
+            if (isPreset(&kPresets[i])) return @(kPresets[i].name);
+        }
+        return @"Custom";
     };
     return row;
 }
