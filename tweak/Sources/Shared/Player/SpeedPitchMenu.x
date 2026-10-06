@@ -25,6 +25,9 @@
 // The redesign's player menu draws a row of its own and takes the two sliders alone
 // (SGSpeedPitchPanelMake): the same view with its row left out and its panel always open.
 //
+// Under the switch, Reverb picks one of the audio effects' rooms or none (Shared/AudioEffects), turning the
+// effects on for it if they were off; it applies at once and lasts, as the Audio effects page's own does.
+//
 // Between the sliders, a switch has pitch follow speed (issue plus#5): the pitch slider folds away, and
 // the panel with it, since the pitch is the speed's. The sheet's block resizes itself in its table; the
 // redesign's menu is told through SGSpeedPitchChangedNotification and reads SGSpeedPitchPanelHeight().
@@ -33,6 +36,7 @@
 #import "Core/SGCore.h"
 #import "Settings/SGPageStyle.h"
 #import "Shared/Haptics/Haptics.h"
+#import "Shared/AudioEffects/AudioEffects.h"
 #import "SpeedPitch.h"
 
 // A menu this soon after the more button's tap is the player's.
@@ -105,8 +109,8 @@ NSNotificationName const SGSpeedPitchChangedNotification = @"SGSpeedPitchChanged
     UIImageView *_icon, *_chevron;
     UILabel *_title, *_summary;
     UIView *_panel;
-    UILabel *_speedName, *_pitchName, *_followName;
-    UIButton *_speedValue, *_pitchValue;
+    UILabel *_speedName, *_pitchName, *_followName, *_reverbName;
+    UIButton *_speedValue, *_pitchValue, *_reverb;
     UISlider *_speed, *_pitch;
     UISwitch *_follow;
     float _shownSpeed, _shownPitch;
@@ -240,15 +244,45 @@ static void placeTick(UISlider *slider) {
     _follow.accessibilityLabel = @"Pitch follows speed";
     _follow.accessibilityHint = @"Faster plays higher, as a record does";
     [_follow addTarget:self action:@selector(followChanged) forControlEvents:UIControlEventValueChanged];
-    for (UIView *view in @[_speedName, _speedValue, _speed, _followName, _follow, _pitchName, _pitchValue, _pitch]) [_panel addSubview:view];
+    _reverbName = makeLabel(nameFont, secondary());
+    _reverbName.text = @"Reverb";
+    _reverbName.isAccessibilityElement = NO;
+    UIButtonConfiguration *reverb = [UIButtonConfiguration plainButtonConfiguration];
+    reverb.image = paintedSymbol(@"chevron.up.chevron.down", 11, UIImageSymbolWeightSemibold, secondary());
+    reverb.imagePlacement = NSDirectionalRectEdgeTrailing;
+    reverb.imagePadding = 6;
+    reverb.contentInsets = NSDirectionalEdgeInsetsZero;
+    reverb.baseForegroundColor = primary();
+    _reverb = [UIButton buttonWithConfiguration:reverb primaryAction:nil];
+    _reverb.tintColor = primary();
+    _reverb.showsMenuAsPrimaryAction = YES;
+    _reverb.accessibilityLabel = @"Reverb";
+    for (UIView *view in @[_speedName, _speedValue, _speed, _followName, _follow, _reverbName, _reverb, _pitchName, _pitchValue, _pitch]) [_panel addSubview:view];
 
     [self refresh];
     return self;
 }
 
-// The sliders' part: speed, the switch, and pitch unless it follows speed.
+// The sliders' part: speed, the switch, reverb, and pitch unless it follows speed.
 static CGFloat panelHeight(void) {
-    return kSliderBlockHeight + kFollowHeight + (SGPlayerPitchFollowsSpeed() ? 0 : kSliderBlockHeight) + kPanelBottom;
+    return kSliderBlockHeight + 2 * kFollowHeight + (SGPlayerPitchFollowsSpeed() ? 0 : kSliderBlockHeight) + kPanelBottom;
+}
+
+// Reverb's choices: none, then the audio effects' rooms.
+static NSInteger reverbChoice(void) {
+    if (!SGDSPSwitch(SGKeyDSP) || !SGDSPSwitch(SGKeyDSPReverb)) return -1;
+    return (NSInteger)SGDSPNumber(SGKeyDSPReverbPreset);
+}
+
+static void setReverbChoice(NSInteger preset) {
+    if (preset < 0) {
+        SGDSPSetSwitch(SGKeyDSPReverb, NO);
+    } else {
+        SGDSPSetNumber(SGKeyDSPReverbPreset, preset);
+        SGDSPSetSwitch(SGKeyDSPReverb, YES);
+        if (!SGDSPSwitch(SGKeyDSP)) SGDSPSetSwitch(SGKeyDSP, YES);
+    }
+    SGLog(@"speed and pitch: reverb %ld", (long)preset);
 }
 
 + (CGFloat)heightOpen:(BOOL)open {
@@ -269,11 +303,12 @@ static CGFloat panelHeight(void) {
 
     _row.hidden = self.panelOnly;
     // Pitch stays laid out under the switch when it folds away, so it fades where it was rather than moving.
-    _panel.frame = CGRectMake(0, self.panelOnly ? 0 : kRowHeight, width, kSliderBlockHeight + kFollowHeight + kSliderBlockHeight + kPanelBottom);
+    _panel.frame = CGRectMake(0, self.panelOnly ? 0 : kRowHeight, width, kSliderBlockHeight + 2 * kFollowHeight + kSliderBlockHeight + kPanelBottom);
     CGFloat y = 0;
-    for (NSArray<UIView *> *line in @[@[_speedName, _speedValue, _speed], @[_followName, _follow], @[_pitchName, _pitchValue, _pitch]]) {
+    for (NSArray<UIView *> *line in @[@[_speedName, _speedValue, _speed], @[_followName, _follow], @[_reverbName, _reverb], @[_pitchName, _pitchValue, _pitch]]) {
         if (line.count == 2) {
-            CGSize toggle = [_follow sizeThatFits:CGSizeZero];
+            CGSize toggle = [line[1] sizeThatFits:CGSizeMake(width / 2, kFollowHeight)];
+            toggle.width = MIN(toggle.width, width / 2);
             line[1].frame = CGRectMake(width - side - toggle.width, y + roundf((kFollowHeight - toggle.height) / 2), toggle.width, toggle.height);
             line[0].frame = CGRectMake(side, y, MAX(0, CGRectGetMinX(line[1].frame) - kGrid - side), kFollowHeight);
             y += kFollowHeight;
@@ -335,6 +370,7 @@ static NSString *summaryText(float speed, BOOL speedShown, float pitch, BOOL fol
     _follow.on = SGPlayerPitchFollowsSpeed();
     _follow.enabled = speedAllowed;
     _followName.alpha = speedAllowed ? 1 : 0.4;
+    [self refreshReverb];
     [self showValues];
 }
 
@@ -366,6 +402,42 @@ static NSString *summaryText(float speed, BOOL speedShown, float pitch, BOOL fol
     for (UIView *view in @[_pitchName, _pitchValue, _pitch]) view.accessibilityElementsHidden = follows;
     [NSNotificationCenter.defaultCenter postNotificationName:SGSpeedPitchChangedNotification object:nil
                                                     userInfo:summary ? @{@"summary": summary} : nil];
+}
+
+// The reverb button reads the room it is set to and offers the others, a check against the one set.
+- (void)refreshReverb {
+    NSArray<NSString *> *rooms = SGDSPReverbPresetNames();
+    NSInteger current = reverbChoice();
+    NSString *title = current >= 0 && current < (NSInteger)rooms.count ? rooms[(NSUInteger)current] : @"Off";
+    UIButtonConfiguration *configuration = _reverb.configuration;
+    configuration.attributedTitle = [[NSAttributedString alloc] initWithString:title attributes:@{
+        NSFontAttributeName: font(UIFontTextStyleSubheadline, UIFontWeightSemibold, UIContentSizeCategoryExtraLarge),
+        NSForegroundColorAttributeName: primary(),
+    }];
+    [UIView performWithoutAnimation:^{
+        self->_reverb.configuration = configuration;
+        [self->_reverb layoutIfNeeded];
+    }];
+    _reverb.accessibilityValue = title;
+    NSMutableArray<UIMenuElement *> *items = [NSMutableArray array];
+    __weak SGSpeedPitchView *weakSelf = self;
+    UIAction *off = [UIAction actionWithTitle:@"Off" image:nil identifier:nil handler:^(UIAction *action) {
+        setReverbChoice(-1);
+        [weakSelf refreshReverb];
+        [weakSelf setNeedsLayout];
+    }];
+    off.state = current < 0 ? UIMenuElementStateOn : UIMenuElementStateOff;
+    [items addObject:off];
+    [rooms enumerateObjectsUsingBlock:^(NSString *room, NSUInteger index, BOOL *stop) {
+        UIAction *pick = [UIAction actionWithTitle:room image:nil identifier:nil handler:^(UIAction *action) {
+            setReverbChoice((NSInteger)index);
+            [weakSelf refreshReverb];
+            [weakSelf setNeedsLayout];
+        }];
+        pick.state = (NSInteger)index == current ? UIMenuElementStateOn : UIMenuElementStateOff;
+        [items addObject:pick];
+    }];
+    _reverb.menu = [UIMenu menuWithTitle:@"Reverb" children:items];
 }
 
 #pragma mark actions
