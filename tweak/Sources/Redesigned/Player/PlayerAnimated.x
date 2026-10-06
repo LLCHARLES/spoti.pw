@@ -19,6 +19,15 @@ static const float kCeiling = 0.18f, kCeilingContrast = 0.09f, kUnknownLight = 0
 // the bottom of the video reads darker than the ground below it (which was the seam).
 static const float kDimLeast = 0.0f, kDimLyrics = 0.10f, kDimMost = 0.12f;
 static const NSTimeInterval kReadyWithin = 5;
+// Where the clip begins fading to nothing, as a fraction of the artwork band's
+// height — BitChord keeps its motion cover visible to ~0.72 then dissolves it,
+// so the bottom ~22% of the band melts into the Fluid artwork instead of ending
+// on a hard line.
+static const float kDissolveStart = 0.78f;
+// Colour stops in the dissolve ramp. As many as BitChord's BottomFadeScrim: a
+// two-stop gradient interpolates linearly in the shader, which bands across a
+// near-flat alpha on an 8-bit display; sampling the curve hands it short spans.
+static const NSInteger kMaskStops = 12;
 
 static char kReadyContext, kViewKey;
 
@@ -170,6 +179,7 @@ static void readLight(NSURL *file, void (^done)(float light)) {
 
 @implementation SGRPlayerAnimatedView {
     CALayer *_video;   // container for the clip and a light dim; masked to fade out at the bottom
+    CAGradientLayer *_mask;   // eased, many-stop alpha mask that dissolves the clip's bottom edge
     CALayer *_clips;
     CALayer *_dim;
     CAGradientLayer *_ground;   // the full-screen legibility scrim over the Fluid artwork
@@ -206,8 +216,17 @@ static float dimFor(float light, BOOL lyricsUp) {
     // mesh backdrop's scrim across the whole player.
     _ground = [CAGradientLayer layer];
     _ground.actions = still;
-    _ground.colors = @[(id)[black colorWithAlphaComponent:0.06].CGColor, (id)[black colorWithAlphaComponent:0.30].CGColor];
-    _ground.locations = @[@0, @1];
+    // Many-stop, ease-in ramp rather than two stops: the bottom of the artwork
+    // dissolves into this scrim, so its darkening must read continuous there (no
+    // flat-shaded band). BitChord does the same for its mesh backdrop's scrim.
+    _ground.colors = @[
+        (id)[black colorWithAlphaComponent:0.06].CGColor,
+        (id)[black colorWithAlphaComponent:0.12].CGColor,
+        (id)[black colorWithAlphaComponent:0.20].CGColor,
+        (id)[black colorWithAlphaComponent:0.28].CGColor,
+        (id)[black colorWithAlphaComponent:0.34].CGColor,
+    ];
+    _ground.locations = @[@0, @0.35, @0.65, @0.85, @1];
     [self.layer addSublayer:_ground];
     // The video band (clip + a light dim) lives in one container so a single gradient mask can dissolve
     // its bottom edge into the Fluid artwork behind it — the way BitChord, LyricsBlossom and Apple Music
@@ -225,6 +244,27 @@ static float dimFor(float light, BOOL lyricsUp) {
     _light = kUnknownLight;
     _dim.opacity = dimFor(_light, NO);
     [_video addSublayer:_dim];
+    // BitChord-style dissolve: a single eased, many-stop alpha mask on the video
+    // container fades its bottom edge to nothing, so the clip melts into the Fluid
+    // artwork below it instead of stopping on a line. The ease-in (1 - u^3) keeps
+    // the clip fully shown until well into the dissolve band, then drops fast near
+    // the very bottom, hiding where the layer ends; many stops stop it banding.
+    _mask = [CAGradientLayer layer];
+    _mask.actions = still;
+    NSMutableArray *maskColors = [NSMutableArray arrayWithCapacity:kMaskStops + 2];
+    NSMutableArray *maskLocations = [NSMutableArray arrayWithCapacity:kMaskStops + 2];
+    [maskColors addObject:(id)UIColor.whiteColor.CGColor];
+    [maskLocations addObject:@0];
+    [maskColors addObject:(id)UIColor.whiteColor.CGColor];
+    [maskLocations addObject:@(kDissolveStart)];
+    for (NSInteger i = 1; i <= kMaskStops; i++) {
+        CGFloat u = (CGFloat)i / kMaskStops;
+        CGFloat alpha = 1 - powf(u, 3.0f);   // EaseInCubic from shown to clear
+        [maskColors addObject:(id)[UIColor colorWithWhite:1 alpha:alpha].CGColor];
+        [maskLocations addObject:@(kDissolveStart + u * (1 - kDissolveStart))];
+    }
+    _mask.colors = maskColors;
+    _mask.locations = maskLocations;
     // A blur over the video's dissolve region samples the clip itself, so its colours bleed down into
     // the Fluid artwork rather than stopping on the alpha edge — the same trick LyricsBlossom and
     // Apple Music use to marry a motion cover to its colour field.
@@ -254,7 +294,10 @@ static float dimFor(float light, BOOL lyricsUp) {
     // the Fluid artwork (the field) carries on, following the cover's colours as it does everywhere
     // else in the player.
     _video.frame = CGRectMake(0, 0, bounds.size.width, vh);
-    _video.mask = nil;
+    // Dissolve the clip's bottom edge into the Fluid artwork below (BitChord-style),
+    // rather than leaving the hard rectangle the blur alone could not hide.
+    _mask.frame = _video.bounds;
+    _video.mask = _mask;
     _clips.frame = _video.bounds;
     _dim.frame = _video.bounds;
     _clip.layer.frame = _video.bounds;
