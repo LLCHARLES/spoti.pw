@@ -146,7 +146,7 @@ NSString *SGKaraokeSpotifyAuthorization(void) {
 // `retry`: the sources' walk failed on the way, so an answer with no lines is not final either.
 static void requestFromSpotify(NSString *trackID, BOOL retry) {
     NSDictionary<NSString *, NSString *> *headers = sg_spclientHeaders;
-    if (!headers) return;
+    if (!headers || SGKaraokeIsLocalTrack(trackID)) return;
     [sg_requested addObject:trackID];
     [sg_asking addObject:trackID];
     NSString *address = [NSString stringWithFormat:@"https://spclient.wg.spotify.com/color-lyrics/v2/track/%@?format=json&vocalRemoval=false&market=from_token", trackID];
@@ -192,6 +192,10 @@ void SGKaraokeAskSpotifyForTiming(NSString *trackID) {
 
 void SGKaraokeRequestLyrics(NSString *trackID) {
     if (!trackID || sg_lyrics[trackID] || [sg_requested containsObject:trackID]) return;
+    if (SGKaraokeIsLocalTrack(trackID)) {
+        SGLocalLyricsFetch(trackID);
+        return;
+    }
     if (!sg_ownSources) {
         requestFromSpotify(trackID, NO);
         return;
@@ -221,9 +225,22 @@ static SPTPlayerState *playerState(void) {
 }
 
 NSString *SGKaraokePlayingTrack(void) {
-    id uri = playerState().track.URI;
-    NSString *text = [uri isKindOfClass:NSURL.class] ? ((NSURL *)uri).absoluteString : [uri description];
-    return [text hasPrefix:@"spotify:track:"] ? [text substringFromIndex:@"spotify:track:".length] : nil;
+    return idOf(playerState().track);
+}
+
+BOOL SGKaraokeIsLocalTrack(NSString *trackID) {
+    return [trackID isKindOfClass:NSString.class] && [trackID hasPrefix:@"local~"];
+}
+
+// FNV-1a over the URI's bytes: the same file gets the same name every launch.
+NSString *SGKaraokeLocalTrackID(NSString *uri) {
+    if (![uri hasPrefix:@"spotify:local:"]) return nil;
+    uint64_t hash = 14695981039346656037ULL;
+    for (const unsigned char *c = (const unsigned char *)uri.UTF8String; c && *c; c++) {
+        hash ^= *c;
+        hash *= 1099511628211ULL;
+    }
+    return [NSString stringWithFormat:@"local~%016llx", hash];
 }
 
 NSInteger SGKaraokePositionMs(void) {
@@ -242,7 +259,9 @@ void SGKaraokeSeek(NSInteger ms) {
 
 static NSString *idOf(SPTPlayerTrack *track) {
     id uri = track.URI;
+    if (!uri) return nil;
     NSString *text = [uri isKindOfClass:NSURL.class] ? ((NSURL *)uri).absoluteString : [uri description];
+    if ([text hasPrefix:@"spotify:local:"]) return SGKaraokeLocalTrackID(text);
     return [text hasPrefix:@"spotify:track:"] ? [text substringFromIndex:@"spotify:track:".length] : nil;
 }
 
@@ -276,13 +295,19 @@ void SGKaraokeRememberTrack(SPTPlayerTrack *track) {
 // beat of starting it and gives its card list about a second to load, so an answer that is already
 // in is what puts the card there. The track is named here, so no walk waits for a name.
 static void prefetch(SPTPlayerTrack *track, NSString *trackID, SPTPlayerState *state) {
+    // A local file's lyrics are the mod's to find whether or not its own sources are on.
+    if (SGKaraokeIsLocalTrack(trackID)) {
+        SGLocalLyricsFetch(trackID);
+        return;
+    }
     if (!sg_ownSources) return;
     SGLyricsPrefetch(trackID);
     SPTPlayerTrack *next = upNextIn(state);
     NSString *nextID = idOf(next);
     if (!nextID || [nextID isEqualToString:trackID]) return;
     remember(next, nextID);
-    SGLyricsPrefetch(nextID);
+    if (SGKaraokeIsLocalTrack(nextID)) SGLocalLyricsFetch(nextID);
+    else SGLyricsPrefetch(nextID);
 }
 
 %hook SPTEsperantoPlayer

@@ -104,6 +104,11 @@ Shared:
                   Spicy Lyrics') as one numbered list in the translation language, or the iPhone's for Any, and come
                   back as a JSON array of the same length, set on the lines and kept again so the views redraw; a
                   wrong length is dropped, answers are cached for the session, a refusal waits ten minutes
+    LyricsSources/LocalLyrics.m: a local file (spotify:local:) is named "local~" and an FNV-1a hash of its URI in
+                  the lyrics engine (SGKaraokeLocalTrackID), never sent to Spotify or the sources asked by
+                  Spotify's id; its lyrics are what was typed in for it (Documents/spoti.pw/Local lyrics/<id>.lrc,
+                  LRC or plain lines, from the Lyrics page's "Lyrics of this local file" sheet while one plays),
+                  else LRCLIB's by the title, artist and length its URI carries
     LockScreenLyrics/ the line being sung in the system's now playing
     LockScreenArtwork/ the track's Canvas or its album's Apple Music cover as the lock screen's animated
                   artwork, from iOS 26 (Apple takes an MPMediaItemAnimatedArtwork under one of

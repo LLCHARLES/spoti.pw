@@ -473,7 +473,8 @@ static void whenNamed(NSString *trackID, NSTimeInterval waited) {
 void SGLyricsFetch(NSString *trackID, void (^done)(SGLyricsResult *result)) {
     setUp();
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!trackID.length) {
+        // A local file is no source's to look up by Spotify's id; LocalLyrics.m has it.
+        if (!trackID.length || SGKaraokeIsLocalTrack(trackID)) {
             done(nil);
             return;
         }

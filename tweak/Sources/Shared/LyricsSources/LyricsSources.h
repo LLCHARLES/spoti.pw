@@ -159,6 +159,23 @@ extern SGLyricsAsk SGMusixmatchAsk;
 extern SGLyricsAsk SGUnisonAsk;
 extern SGLyricsAsk SGNetEaseAsk;
 extern SGLyricsAsk SGLrcLibAsk;
+
+// LrcLib.m's reading of LRC, [mm:ss.xx] stamps before each line, as timed lines; nil for text with none.
+NSArray<SGKaraokeLine *> *SGLyricsLinesFromLRC(NSString *lrc);
+
+// LocalLyrics.m: a local file's lyrics (SGKaraokeIsLocalTrack), from what was typed in for it, else from
+// LRCLIB by the name and the length in its URI; kept as any track's are. Any thread; the work is the main queue's.
+void SGLocalLyricsFetch(NSString *localID);
+// The lyrics typed in for the local file playing now: LRC with timestamps, or plain lines. An empty text
+// removes them and looks LRCLIB up again. Answers what is wrong, or nil once kept.
+NSString *SGLocalLyricsSave(NSString *localID, NSString *text);
+// What was typed in for it, nil for none.
+NSString *SGLocalLyricsSaved(NSString *localID);
+// The local file playing now, its id and a name to show; NO when what plays is not a local file.
+BOOL SGLocalLyricsPlaying(NSString **localID, NSString **name);
+@class SGModRow;
+// LocalLyricsEditor.m: the Lyrics page's row, shown while a local file plays, opening its lyrics to edit.
+SGModRow *SGLocalLyricsRow(void);
 extern SGLyricsAsk SGSpicyLyricsAsk;
 
 // SpicyLyrics.m asks with a publishable key the user made on Spicy Lyrics' developer platform, and

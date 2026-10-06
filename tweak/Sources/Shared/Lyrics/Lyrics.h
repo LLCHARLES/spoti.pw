@@ -107,6 +107,10 @@ void SGKaraokeAskSpotifyForTiming(NSString *trackID);
 // back to Spotify's servers (the lock screen's canvaz lookup), never to a lyrics source.
 NSString *SGKaraokeSpotifyAuthorization(void);
 NSString *SGKaraokePlayingTrack(void);   // the base62 id, nil before the player reported
+// A local file has no base62 id, so the engine names it "local~" and a hash of its spotify:local: URI;
+// its lyrics come from Shared/LyricsSources/LocalLyrics.m and never from Spotify's servers.
+BOOL SGKaraokeIsLocalTrack(NSString *trackID);
+NSString *SGKaraokeLocalTrackID(NSString *uri);   // nil for a URI that is not spotify:local:
 NSInteger SGKaraokePositionMs(void);     // negative when unknown
 void SGKaraokeSeek(NSInteger ms);
 id SGKaraokePlayer(void);                // SPTEsperantoPlayer, nil before the app asked it for its state

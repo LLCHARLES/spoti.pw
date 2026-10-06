@@ -64,6 +64,10 @@ static NSArray<SGKaraokeLine *> *linesFromLRC(NSString *lrc) {
     return SGKaraokeEstimatedLines(starts, texts);
 }
 
+NSArray<SGKaraokeLine *> *SGLyricsLinesFromLRC(NSString *lrc) {
+    return [lrc isKindOfClass:NSString.class] ? linesFromLRC(lrc) : nil;
+}
+
 static SGLyricsResult *resultFrom(NSDictionary *record) {
     if (![record isKindOfClass:NSDictionary.class]) return nil;
     SGLyricsResult *result = [SGLyricsResult new];
