@@ -11,7 +11,7 @@ typedef int32_t (*SGStemWrite)(void *context, const float *pcm, uint32_t frames,
 typedef void (*SGStemStatus)(void *context, int32_t status);
 // Loads the compiled Core ML model at modelPath (or shares the one still warm) and separates windows of
 // windowFrames, a hop of hopFrames apart; a model made for another window fails. Returns an owned
-// cancellation handle, or NULL below iOS 27. Cancel releases that handle exactly once. Finished is
+// cancellation handle, or NULL below iOS 18. Cancel releases that handle exactly once. Finished is
 // called once even when cancellation interrupts load.
 void *SGStemWorkerStart(void *context, const char *modelPath, uint32_t windowFrames, uint32_t hopFrames,
                        SGStemRead read, SGStemWrite write, SGStemStatus status);

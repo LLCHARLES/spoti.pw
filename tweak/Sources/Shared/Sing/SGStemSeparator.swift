@@ -25,7 +25,7 @@ enum SGStemShape {
     static let spectrumCount = spectrum.reduce(1, *)
 }
 
-@available(iOS 27.0, macOS 27.0, *)
+@available(iOS 18.0, macOS 15.0, *)
 actor SGStemSeparator {
     let windowFrames = SGStemShape.windowFrames
     private let cpu: MLModel

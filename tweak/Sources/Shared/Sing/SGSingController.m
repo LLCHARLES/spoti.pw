@@ -433,7 +433,7 @@ static void workerStatus(void *context, int32_t status) {
 @end
 
 BOOL SGSingSupported(void) {
-    if (@available(iOS 27.0, *)) return YES;
+    if (@available(iOS 18.0, *)) return YES;
     return NO;
 }
 void SGSingConfigure(BOOL enabled) {

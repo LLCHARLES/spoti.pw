@@ -15,7 +15,7 @@ private let idlePoll = Duration.milliseconds(25) // how soon a worker with nothi
 
 // One warm model, shared by the workers that follow each other and kept for a while after the last
 // one ends. A load in flight is shared too, and one made stale by a purge never becomes the warm model.
-@available(iOS 27.0, macOS 27.0, *)
+@available(iOS 18.0, macOS 15.0, *)
 private actor SGStemModels {
     static let shared = SGStemModels()
     private var model: SGStemSeparator?
@@ -70,7 +70,7 @@ private actor SGStemModels {
 
 // The C owner retains context until the final callback. Only this task invokes the endpoints;
 // the render endpoint and the worker exchange PCM through the production SPSC queues.
-@available(iOS 27.0, macOS 27.0, *)
+@available(iOS 18.0, macOS 15.0, *)
 private final class SGStemJob: @unchecked Sendable {
     let context: UnsafeMutableRawPointer?
     let read: StemRead, write: StemWrite, status: StemStatus
@@ -166,7 +166,7 @@ private final class SGStemJob: @unchecked Sendable {
 @_cdecl("SGStemWorkerStart")
 public func sgStemWorkerStart(_ context: UnsafeMutableRawPointer?, _ path: UnsafePointer<CChar>?, _ windowFrames: UInt32,
                               _ hopFrames: UInt32, _ read: StemRead?, _ write: StemWrite?, _ status: StemStatus?) -> UnsafeMutableRawPointer? {
-    if #available(iOS 27.0, macOS 27.0, *), let path, let read, let write, let status {
+    if #available(iOS 18.0, macOS 15.0, *), let path, let read, let write, let status {
         let job = SGStemJob(context: context, read: read, write: write, status: status)
         let modelPath = String(cString: path)
         job.task = Task.detached(priority: .userInitiated) {
@@ -179,14 +179,14 @@ public func sgStemWorkerStart(_ context: UnsafeMutableRawPointer?, _ path: Unsaf
 
 @_cdecl("SGStemWorkerCancel")
 public func sgStemWorkerCancel(_ handle: UnsafeMutableRawPointer?, _ unload: Int32) {
-    if #available(iOS 27.0, macOS 27.0, *), let handle {
+    if #available(iOS 18.0, macOS 15.0, *), let handle {
         Unmanaged<SGStemJob>.fromOpaque(handle).takeRetainedValue().cancel(unload: unload != 0)
     }
 }
 
 @_cdecl("SGStemWorkerPurge")
 public func sgStemWorkerPurge() {
-    if #available(iOS 27.0, macOS 27.0, *) {
+    if #available(iOS 18.0, macOS 15.0, *) {
         Task { await SGStemModels.shared.purge() }
     }
 }

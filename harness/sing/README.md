@@ -2,7 +2,7 @@
 
 Sing turns a song's vocals down, anywhere from 20 to 100 %, while Spotify plays it, from the
 redesigned player's lyrics. The vocals are separated on the iPhone by a Core ML export of
-Mel-Band RoFormer; no audio leaves the phone. It needs iOS 27.
+Mel-Band RoFormer; no audio leaves the phone. It needs iOS 18.
 
 ## Audio and model integration
 
@@ -201,7 +201,7 @@ The model is not in the IPA. In the redesigned look, **Mod Settings → Karaoke*
 has Sing's switch, which puts the microphone in the player's lyrics and takes it away at once (off,
 Sing does no work), and the voice model's row: Not downloaded, Downloading 43 % · 210 of 467 MB with
 a bar under it and Cancel download, Checking…, Downloaded · 467 MB with Remove voice model, or
-Paused / Download failed, whose tap says why. Below iOS 27 the section is a "Needs iOS 27" row.
+Paused / Download failed, whose tap says why. Below iOS 18 the section is a "Needs iOS 27" row.
 
 `Shared/Sing/SGSingModel.m` downloads the five files of `separator.mlmodelc` one by one from
 `https://huggingface.co/Darkkos/spoti-sing/resolve/main/<path>` (no archive: iOS has no public
