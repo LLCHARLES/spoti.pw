@@ -257,6 +257,9 @@ Redesigned:
                   a line's pronunciation (under the words it spells) and translation, switched on from a glass button in
                   the lyrics' corner that shows only for a song that has them, in the order of sizes the Lyrics page sets
                   (LyricsText.h). Laid out on the Mac against harness/lyrics/
+                  The lyrics look editor (LyricsLook.m, Lyrics > Lyrics look) scales the size and the gap between
+                  lines, picks the weight, scales the blur (0 for none) and sets how bright an unlit line is; the
+                  views read it as they lay a song out and restyle in place when it changes
     Home/         Home decluttered to music on black (an allow list of its sections: shortcuts, the DJ without its heading and
                   transcript, the shelves of cards), a large title where the filter pills were with the avatar at the trailing
                   edge, the shelves' headings at the Music app's size, each shortcut tile's cover run across it blurred

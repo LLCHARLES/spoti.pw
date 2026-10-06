@@ -9,6 +9,7 @@
 // lit, nothing following the clock.
 #import "Core/SGCore.h"
 #import "SGRKaraokeView.h"
+#import "LyricsLook.h"
 #import "LyricsText.h"
 #import "MeaningSheet.h"
 #import "Shared/LyricsSources/LyricsSources.h"
@@ -17,7 +18,9 @@
 #import "Redesigned/Kit/SGRTokens.h"
 
 static const CGFloat kFontSize = 30, kMargin = 24, kLineGap = 24, kRowTighten = 2;
-static const CGFloat kDimAlpha = 0.3, kFillEdge = 22, kLift = 2.5, kDimScale = 0.97;
+static const CGFloat kFillEdge = 22, kLift = 2.5, kDimScale = 0.97;
+// A line not lit, 0.3 as Apple Music has it unless the lyrics look editor says otherwise (LyricsLook.h).
+#define kDimAlpha SGRLyricsLookDim()
 static const CGFloat kAnchor = 0.28;   // where the sung line rests, as a share of the height
 static const CGFloat kEdgeFade = 0.1;  // the lines fade out over this share at the top and bottom
 static const CGFloat kBlurPerLine = 1.4, kMaxBlur = 6;
@@ -221,14 +224,14 @@ static const CGFloat kSecondShare = 0.67, kThirdShare = 0.54;
         SGRLyricsText text = order[place].integerValue;
         if ((text == SGRLyricsTextPronunciation && !pronunciation) || (text == SGRLyricsTextTranslation && !translation)) continue;
         CGFloat points = shown.count ? sizes[place] : size;
-        UIFont *font = [UIFont systemFontOfSize:points weight:text == SGRLyricsTextTranslation ? UIFontWeightSemibold : UIFontWeightBold];
+        UIFont *font = [UIFont systemFontOfSize:points weight:text == SGRLyricsTextTranslation ? SGRLyricsLookLightWeight() : SGRLyricsLookWeight()];
         if (text == SGRLyricsTextLyrics) _lyrics = font;
         else if (text == SGRLyricsTextPronunciation) _pronunciation = font;
         else _translation = font;
         [shown addObject:@(text)];
     }
     if (!_lyrics) {   // an order without the lyrics in it is not one to trust
-        _lyrics = [UIFont systemFontOfSize:size weight:UIFontWeightBold];
+        _lyrics = [UIFont systemFontOfSize:size weight:SGRLyricsLookWeight()];
         [shown insertObject:@(SGRLyricsTextLyrics) atIndex:0];
     }
     _order = shown;
@@ -237,8 +240,8 @@ static const CGFloat kSecondShare = 0.67, kThirdShare = 0.54;
 
 - (SGRKaraokeStyle *)backing {
     SGRKaraokeStyle *backing = [SGRKaraokeStyle new];
-    backing->_lyrics = [UIFont systemFontOfSize:round(_lyrics.pointSize * kBackingScale) weight:UIFontWeightBold];
-    if (_pronunciation) backing->_pronunciation = [UIFont systemFontOfSize:round(_pronunciation.pointSize * kBackingScale) weight:UIFontWeightBold];
+    backing->_lyrics = [UIFont systemFontOfSize:round(_lyrics.pointSize * kBackingScale) weight:SGRLyricsLookWeight()];
+    if (_pronunciation) backing->_pronunciation = [UIFont systemFontOfSize:round(_pronunciation.pointSize * kBackingScale) weight:SGRLyricsLookWeight()];
     NSMutableArray<NSNumber *> *order = [_order mutableCopy];
     [order removeObject:@(SGRLyricsTextTranslation)];
     backing->_order = order;
@@ -1089,11 +1092,8 @@ typedef struct {
     if (!self) return nil;
     self.hidden = YES;
     _focus = _openBreak = -1;
-    _fontSize = kFontSize;
     _margin = kMargin;
-    _lineGap = kLineGap;
-    _blurPerLine = kBlurPerLine;
-    _maxBlur = kMaxBlur;
+    [self readLook];
     _shown = [NSMutableDictionary dictionary];
     _sightArrangement = NSUIntegerMax;
     _fade = [CAGradientLayer layer];
@@ -1123,6 +1123,7 @@ typedef struct {
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(playerTransitionChanged:) name:SGPlayerTransitionNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(playerTransitionChanged:) name:SGPlayerTransitionEndedNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(restyle) name:SGRLyricsTextDidChangeNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lookChanged) name:SGRLyricsLookDidChangeNotification object:nil];
     // A locked phone leaves the card in its window, so the link has to be put down by the app going
     // away rather than by the view going: see scheduleLink.
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(scheduleLink) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -1394,7 +1395,7 @@ typedef struct {
     _builtWidth = self.bounds.size.width;
     CGFloat width = _builtWidth - 2 * _margin;
     if (width <= 0) return;
-    _font = [UIFont systemFontOfSize:_fontSize weight:UIFontWeightBold];
+    _font = [UIFont systemFontOfSize:_fontSize weight:SGRLyricsLookWeight()];
     SGRKaraokeStyle *style = _style = [self styleNow];
     NSArray<SGKaraokeLine *> *lines = _lines;
     CGFloat gap = _lineGap;
@@ -1407,6 +1408,24 @@ typedef struct {
             [self placeLinesAnimated:NO];
         });
     });
+}
+
+#pragma mark - the lyrics look editor
+
+// Apple Music's size, gap and blur, scaled as the lyrics look editor has them (LyricsLook.h).
+- (void)readLook {
+    CGFloat scale = SGRLyricsLookScale(), blur = SGRLyricsLookBlurScale();
+    _fontSize = round(kFontSize * scale);
+    _lineGap = round(kLineGap * scale);
+    _blurPerLine = kBlurPerLine * blur;
+    _maxBlur = kMaxBlur * blur;
+}
+
+// A setting of the editor: the song is laid out again in it, crossfading over where it was.
+- (void)lookChanged {
+    [self readLook];
+    _font = [UIFont systemFontOfSize:_fontSize weight:SGRLyricsLookWeight()];
+    [self restyle];
 }
 
 #pragma mark - the pronunciation and the translation
