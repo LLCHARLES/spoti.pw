@@ -32,6 +32,10 @@ BOOL SGUpdateIsNewer(NSString *version);   // whether that release is newer than
 NSString *SGUpdateStatus(void);
 void SGCheckForUpdate(BOOL force);
 UIViewController *SGUpdatePage(void);   // UpdatePage.m: the state and the changelog
+// WhatsNew.m: the sheet listing what this version brought, on the first launch after an update and from
+// the Mod page.
+void SGShowWhatsNew(void);
+void SGWhatsNewAtLaunch(void);
 UIViewController *SGLicensesPage(void); // Licenses.m: the mod's license and the third-party ones it ships
 
 // Usage.m: the body the check posts to spoti.pw, nil while the switch is off. The key sits outside

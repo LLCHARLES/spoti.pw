@@ -44,6 +44,8 @@ screens works under both. So the sources are four layers, each a directory of fe
     Native/       Spotify's own screens tweaked; every %ctor starts with `if (!SGNativeUI()) return;`
     Redesigned/   the redesign; every %ctor starts with `if (!SGRedesignedUI()) return;`
     App/          Mod Settings' root and the pages that combine the layers, the Mod page, the tour
+                  (About/WhatsNew.m: the first launch after an update lists the version's release notes, read off
+                  the releases Update.m keeps, and the Mod page's What's new opens it again)
 
 `SGRedesignTested()` (Core/SGUIMode.h) is YES from iOS 26: the redesign is Liquid Glass, and
 `UIGlassEffect` is the system's, so on an older OS the glass calls fall back to a blur and the redesign
@@ -75,6 +77,7 @@ Shared:
     ArtistBlock/  tracks by blocked artists skipped as they start (ArtistSkip.x), the list and the Blocked artists page under Player
     Flags/        Spotify's remote-config flags: the provider hook, the generated table, the All flags page and the Labs page
     Gestures/     the double tap zones on the player: the grid, what each cell does, the recognizer (each look hooks it on)
+                  and Hold to play faster (Player page): a long press on the left or right third plays at 2x until it lifts
     Lyrics/       the lyrics engine for the redesign's Apple Music style lyrics and the lock screen: lines read from
                   color-lyrics and the player's clock (KaraokeSource.x), words timed by estimate inside Spotify's line
                   times (KaraokeTiming.m), which line to name where two voices sing at once (the one that came in first,
@@ -281,6 +284,8 @@ Redesigned:
                   a line's pronunciation (under the words it spells) and translation, switched on from a glass button in
                   the lyrics' corner that shows only for a song that has them, in the order of sizes the Lyrics page sets
                   (LyricsText.h). Laid out on the Mac against harness/lyrics/
+                  A sung word glows with how long it is held (a shadow on the word view, gone after it), and a word
+                  held a second or more is a row of a label per letter that rises in a wave as the sweep passes
                   The lyrics look editor (LyricsLook.m, Lyrics > Lyrics look) scales the size and the gap between
                   lines, picks the weight, scales the blur (0 for none) and sets how bright an unlit line is; the
                   views read it as they lay a song out and restyle in place when it changes
