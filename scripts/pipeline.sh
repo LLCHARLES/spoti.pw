@@ -136,10 +136,15 @@ for APPEX in $(unzip -Z1 "$OUT" | grep -oE "^${APP_DIR}PlugIns/[^/]+\.appex/" | 
   if [ -z "$EXEC" ] || ! unzip -q "$OUT" "$BIN" -d "$PATCH" 2>/dev/null; then rm -rf "$PATCH"; continue; fi
   echo "    $(basename "$APPEX") ($POINT)"
   "$ROOT/scripts/insert-dylib.py" "$PATCH/$BIN" @rpath/SpotifyGlassAppGroups.dylib
-  # Fakesigned again with its own entitlements, the way cyan -s left it, for TrollStore.
-  ldid -e "$PATCH/$BIN" > "$PATCH/ents.plist"
-  ldid -S"$PATCH/ents.plist" "$PATCH/$BIN"
-  (cd "$PATCH" && zip -q "$OUT_ABS" "$BIN")
+  # Fakesigned again with its own entitlements, the way cyan -s left it, for TrollStore. A crash here
+  # (ldid aborts on some extension binaries) must not abort the whole build or corrupt the IPA, so it is
+  # best-effort: only write the patched binary back when ldid -S actually succeeds.
+  ldid -e "$PATCH/$BIN" > "$PATCH/ents.plist" 2>/dev/null || true
+  if [ -s "$PATCH/ents.plist" ] && ldid -S"$PATCH/ents.plist" "$PATCH/$BIN" 2>/dev/null; then
+    (cd "$PATCH" && zip -q "$OUT_ABS" "$BIN")
+  else
+    echo "    ldid re-sign skipped for $(basename "$APPEX"); leaving it fakesigned"
+  fi
   rm -rf "$PATCH"
   PATCHED=$((PATCHED + 1))
 done
