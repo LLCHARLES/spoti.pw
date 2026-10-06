@@ -1,0 +1,1048 @@
+# IPA Plus analysis
+
+Generated: 2026-10-06T01:52:18Z
+Input size: 134571602 bytes
+App dir: /tmp/ipa/Payload/Spotify.app
+
+## Top-level bundle files
+AppAuthCore_Privacy.bundle
+AppAuthCore_Privacy.bundle/Info.plist
+AppAuthCore_Privacy.bundle/PrivacyInfo.xcprivacy
+AppIcon60x60@2x.png
+AppIcon76x76@2x~ipad.png
+Assets.car
+BMWAppKitIdentities.bundle
+BMWAppKitIdentities.bundle/SpotifyRAPI.p12
+BMWAppKitIdentities.bundle/SpotifyRAPI.p7b
+BMWAppKitResources.bundle
+BMWAppKitResources.bundle/BMWAppKitDevelopment.p12
+BMWAppKitResources.bundle/BMWAppKitDevelopment.p7b
+BMWAppKitResources.bundle/BMWAppKitDevelopmentInternal.p12
+BMWAppKitResources.bundle/BMWAppKitDevelopmentInternal.p7b
+BMWAppKitResources.bundle/IDCDSClient.p12
+BMWAppKitResources.bundle/IDCDSClient.p7b
+BMWAppKitResources.bundle/IDCDSClient.plist
+BMWAppKitResources.bundle/IDRhmiConnectedApps.p12
+BMWAppKitResources.bundle/IDRhmiConnectedApps.p7b
+BMWAppKitResources.bundle/IDRhmiConnectedApps.plist
+BMWAppKitResources.bundle/IDRhmiConnectedApps_HMI.xml
+BMWAppKitResources.bundle/IDRhmiConnectedApps_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio.p12
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio.p7b
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio.plist
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_HMI.xml
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_bmw_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_common_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_mini_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_mini_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMediaRadio_rr_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia.p12
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia.p7b
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia.plist
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_HMI.xml
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_bmw_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_common_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_mini_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_mini_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListMultimedia_rr_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation.p12
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation.p7b
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation.plist
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_HMI.xml
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_bmw_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_common_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_mini_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_mini_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListNavigation_rr_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices.p12
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices.p7b
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices.plist
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_HMI.xml
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_bmw_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_common_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_mini_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_mini_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListOnlineServices_rr_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio.p12
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio.p7b
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio.plist
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_HMI.xml
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_bmw_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_common_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_mini_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_mini_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListRadio_rr_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings.p12
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings.p7b
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings.plist
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_HMI.xml
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_bmw_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_common_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_common_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_mini_Images.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_mini_Texts.zip
+BMWAppKitResources.bundle/IDRhmiFeatureListSettings_rr_Images.zip
+BMWAppKitResources.bundle/Info.plist
+BMWAppKitResources.bundle/en.lproj
+FBAEMKit_BundleResources.bundle
+FBAEMKit_BundleResources.bundle/PrivacyInfo.xcprivacy
+FBLPromises_Privacy.bundle
+FBLPromises_Privacy.bundle/Info.plist
+FBLPromises_Privacy.bundle/PrivacyInfo.xcprivacy
+FBSDKCoreKit_Basics_BundleResources.bundle
+FBSDKCoreKit_Basics_BundleResources.bundle/PrivacyInfo.xcprivacy
+FBSDKCoreKit_BundleResources.bundle
+FBSDKCoreKit_BundleResources.bundle/PrivacyInfo.xcprivacy
+FBSDKLoginKit_BundleResources.bundle
+FBSDKLoginKit_BundleResources.bundle/PrivacyInfo.xcprivacy
+FirebaseCoreExtension_Privacy.bundle
+FirebaseCoreExtension_Privacy.bundle/Info.plist
+FirebaseCoreExtension_Privacy.bundle/PrivacyInfo.xcprivacy
+FirebaseCoreInternal_Privacy.bundle
+FirebaseCoreInternal_Privacy.bundle/Info.plist
+FirebaseCoreInternal_Privacy.bundle/PrivacyInfo.xcprivacy
+FirebaseCore_Privacy.bundle
+FirebaseCore_Privacy.bundle/Info.plist
+FirebaseCore_Privacy.bundle/PrivacyInfo.xcprivacy
+FirebaseCrashlytics_Privacy.bundle
+FirebaseCrashlytics_Privacy.bundle/Info.plist
+FirebaseCrashlytics_Privacy.bundle/PrivacyInfo.xcprivacy
+FirebaseInstallations_Privacy.bundle
+FirebaseInstallations_Privacy.bundle/Info.plist
+FirebaseInstallations_Privacy.bundle/PrivacyInfo.xcprivacy
+Frameworks
+Frameworks/MetaSmartGlassesKit.framework
+Frameworks/SpotifyGlassAppGroups.dylib
+Frameworks/SpotifyShared.framework
+Frameworks/spotifyglass.dylib
+GTMAppAuth_Privacy.bundle
+GTMAppAuth_Privacy.bundle/Info.plist
+GTMAppAuth_Privacy.bundle/PrivacyInfo.xcprivacy
+GTMSessionFetcher_Core_Privacy.bundle
+GTMSessionFetcher_Core_Privacy.bundle/Info.plist
+GTMSessionFetcher_Core_Privacy.bundle/PrivacyInfo.xcprivacy
+GoogleCastCoreResources.bundle
+GoogleCastCoreResources.bundle/CastFrameworkDB.momd
+GoogleCastCoreResources.bundle/Icons
+GoogleCastCoreResources.bundle/af.lproj
+GoogleCastCoreResources.bundle/ar.lproj
+GoogleCastCoreResources.bundle/bg.lproj
+GoogleCastCoreResources.bundle/bn.lproj
+GoogleCastCoreResources.bundle/ca.lproj
+GoogleCastCoreResources.bundle/cs.lproj
+GoogleCastCoreResources.bundle/da.lproj
+GoogleCastCoreResources.bundle/de.lproj
+GoogleCastCoreResources.bundle/el.lproj
+GoogleCastCoreResources.bundle/en.lproj
+GoogleCastCoreResources.bundle/en_GB.lproj
+GoogleCastCoreResources.bundle/es.lproj
+GoogleCastCoreResources.bundle/es_419.lproj
+GoogleCastCoreResources.bundle/et.lproj
+GoogleCastCoreResources.bundle/fa.lproj
+GoogleCastCoreResources.bundle/fi.lproj
+GoogleCastCoreResources.bundle/fil.lproj
+GoogleCastCoreResources.bundle/fr.lproj
+GoogleCastCoreResources.bundle/hi.lproj
+GoogleCastCoreResources.bundle/hr.lproj
+GoogleCastCoreResources.bundle/hu.lproj
+GoogleCastCoreResources.bundle/hy.lproj
+GoogleCastCoreResources.bundle/id.lproj
+GoogleCastCoreResources.bundle/is.lproj
+GoogleCastCoreResources.bundle/it.lproj
+GoogleCastCoreResources.bundle/iw.lproj
+GoogleCastCoreResources.bundle/ja.lproj
+GoogleCastCoreResources.bundle/ka.lproj
+GoogleCastCoreResources.bundle/km.lproj
+GoogleCastCoreResources.bundle/ko.lproj
+GoogleCastCoreResources.bundle/lo.lproj
+GoogleCastCoreResources.bundle/lt.lproj
+GoogleCastCoreResources.bundle/lv.lproj
+GoogleCastCoreResources.bundle/mk.lproj
+GoogleCastCoreResources.bundle/mn.lproj
+GoogleCastCoreResources.bundle/mr.lproj
+GoogleCastCoreResources.bundle/ms.lproj
+GoogleCastCoreResources.bundle/my.lproj
+GoogleCastCoreResources.bundle/ne.lproj
+GoogleCastCoreResources.bundle/nl.lproj
+GoogleCastCoreResources.bundle/no.lproj
+GoogleCastCoreResources.bundle/pl.lproj
+GoogleCastCoreResources.bundle/pt.lproj
+GoogleCastCoreResources.bundle/pt_PT.lproj
+GoogleCastCoreResources.bundle/ro.lproj
+GoogleCastCoreResources.bundle/ru.lproj
+GoogleCastCoreResources.bundle/si.lproj
+GoogleCastCoreResources.bundle/sk.lproj
+GoogleCastCoreResources.bundle/sl.lproj
+GoogleCastCoreResources.bundle/sr.lproj
+GoogleCastCoreResources.bundle/sv.lproj
+GoogleCastCoreResources.bundle/sw.lproj
+GoogleCastCoreResources.bundle/ta.lproj
+GoogleCastCoreResources.bundle/th.lproj
+GoogleCastCoreResources.bundle/tr.lproj
+GoogleCastCoreResources.bundle/uk.lproj
+GoogleCastCoreResources.bundle/vi.lproj
+GoogleCastCoreResources.bundle/zh.lproj
+GoogleCastCoreResources.bundle/zh_CN.lproj
+GoogleCastCoreResources.bundle/zh_TW.lproj
+GoogleDataTransport_Privacy.bundle
+GoogleDataTransport_Privacy.bundle/Info.plist
+GoogleDataTransport_Privacy.bundle/PrivacyInfo.xcprivacy
+GoogleService-Info.plist
+GoogleSignIn.bundle
+GoogleSignIn.bundle/Info.plist
+GoogleSignIn.bundle/PrivacyInfo.xcprivacy
+GoogleSignIn.bundle/Roboto-Bold.ttf
+GoogleSignIn.bundle/ar.lproj
+GoogleSignIn.bundle/ca.lproj
+GoogleSignIn.bundle/cs.lproj
+GoogleSignIn.bundle/da.lproj
+GoogleSignIn.bundle/de.lproj
+GoogleSignIn.bundle/el.lproj
+GoogleSignIn.bundle/en.lproj
+GoogleSignIn.bundle/en_GB.lproj
+GoogleSignIn.bundle/es.lproj
+GoogleSignIn.bundle/es_MX.lproj
+GoogleSignIn.bundle/fi.lproj
+GoogleSignIn.bundle/fr.lproj
+GoogleSignIn.bundle/fr_CA.lproj
+GoogleSignIn.bundle/google.png
+GoogleSignIn.bundle/google@2x.png
+GoogleSignIn.bundle/google@3x.png
+GoogleSignIn.bundle/he.lproj
+GoogleSignIn.bundle/hi.lproj
+GoogleSignIn.bundle/hr.lproj
+GoogleSignIn.bundle/hu.lproj
+GoogleSignIn.bundle/id.lproj
+GoogleSignIn.bundle/it.lproj
+GoogleSignIn.bundle/ja.lproj
+GoogleSignIn.bundle/ko.lproj
+GoogleSignIn.bundle/ms.lproj
+GoogleSignIn.bundle/nb.lproj
+GoogleSignIn.bundle/nl.lproj
+GoogleSignIn.bundle/pl.lproj
+GoogleSignIn.bundle/pt.lproj
+GoogleSignIn.bundle/pt_BR.lproj
+GoogleSignIn.bundle/pt_PT.lproj
+GoogleSignIn.bundle/ro.lproj
+GoogleSignIn.bundle/ru.lproj
+GoogleSignIn.bundle/sk.lproj
+GoogleSignIn.bundle/sv.lproj
+GoogleSignIn.bundle/th.lproj
+GoogleSignIn.bundle/tr.lproj
+GoogleSignIn.bundle/uk.lproj
+GoogleSignIn.bundle/vi.lproj
+GoogleSignIn.bundle/zh_CN.lproj
+GoogleSignIn.bundle/zh_TW.lproj
+GoogleUtilities_Privacy.bundle
+GoogleUtilities_Privacy.bundle/Info.plist
+GoogleUtilities_Privacy.bundle/PrivacyInfo.xcprivacy
+Info.plist
+Intents.intentdefinition
+LaunchScreen.storyboardc
+LaunchScreen.storyboardc/01J-lp-oVM-view-MkI-aN-x20.nib
+LaunchScreen.storyboardc/Info.plist
+LaunchScreen.storyboardc/UIViewController-01J-lp-oVM.nib
+Metadata.appintents
+Metadata.appintents/extract.actionsdata
+Metadata.appintents/version.json
+PkgInfo
+PlugIns
+PlugIns/IntentsExtension.appex
+PlugIns/NotificationContentExtension.appex
+PlugIns/NotificationServiceExtension.appex
+
+## Files containing Plus-related strings
+### Payload/Spotify.app/Spotify
+```
+	<key>com.apple.developer.storekit.custom-purchase-link.allowed-regions</key>
+	<string>production</string>
+	PURCHASED
+	purchased
+	purchases
+    `$(PRODUCT_BUNDLE_IDENTIFIER)`.
+  %3d files locked in storage
+  %3d files unlocked in storage
+ skipping navigation command subscription
+!_position_subscription_timer.isScheduled(): 
+"CONTENT_RATING_TAG_SPOTIFY_18_PLUS
+"default_play_bitrate_product_state
+"default_sync_bitrate_product_state
+$__lazy_storage_$_adsProductState
+$__lazy_storage_$_emptyBlockedListView
+$__lazy_storage_$_explorePremiumButton
+$__lazy_storage_$_invitePlusIcon
+$__lazy_storage_$_isEnabledForOnDemandTrial
+$__lazy_storage_$_isMFTPlus
+$__lazy_storage_$_isPremiumSignal
+$__lazy_storage_$_losslessProductState
+$__lazy_storage_$_mftPlusQueuePublisherProvider
+$__lazy_storage_$_nineteenPlusBadge
+$__lazy_storage_$_notificationsProductState
+$__lazy_storage_$_onDemandTrialProvider
+$__lazy_storage_$_onDemandTrialUIProvider
+$__lazy_storage_$_optInProductHandler
+$__lazy_storage_$_pastReceiptsComponent
+$__lazy_storage_$_plus19Badge
+$__lazy_storage_$_plus19BadgeContainer
+$__lazy_storage_$_plus19BadgeDefaultConstraint
+$__lazy_storage_$_plus19BadgeMarginFixConstraint
+$__lazy_storage_$_plusButton
+$__lazy_storage_$_podcastPaywallsAccessManager
+$__lazy_storage_$_podcastSubscription
+$__lazy_storage_$_premiumAccessUpdateRegistry
+$__lazy_storage_$_premiumBadge
+$__lazy_storage_$_premiumDestinationLogger
+$__lazy_storage_$_premiumIconView
+$__lazy_storage_$_premiumLabel
+$__lazy_storage_$_premiumUpsellBannerElement
+$__lazy_storage_$_productInformationController
+$__lazy_storage_$_productRestrictions
+$__lazy_storage_$_productState
+$__lazy_storage_$_productStateClient
+$__lazy_storage_$_productStatePublisherProvider
+$__lazy_storage_$_productStateStore
+$__lazy_storage_$_productStorePagePresenter
+$__lazy_storage_$_subscriptionCard
+$__lazy_storage_$_subscriptionController
+$__lazy_storage_$_subscriptionFetcher
+$__lazy_storage_$_trialController
+$__lazy_storage_$_trialEducationProvider
+$__lazy_storage_$_yourLibraryProductState
+$product_brand
+$product_category
+$product_name
+$product_variant
+$s012AdsPlatform_A19IdentityTrackingAPI28SPTProductStorePagePresenterP
+$s012AdsPlatform_A3API0A20ProductStateProtocolP
+$s012YourLibrary_aB4XAPI0aB17SubscriptionTokenP
+$s012YourLibrary_aB5XImpl0aB26ImportProgressSubscriptionP
+$s012YourLibrary_aB5XImpl0aB40OfflineTotalDownloadProgressSubscriptionP
+$s014OnDemandTrial_abC20PlanOverviewPageImpl0abcdE6LoggerP
+$s014PremiumUpsell_A18DestinationPageAPI0aC7ServiceP
+$s014PremiumUpsell_A18DestinationPageAPI0acD16LastSeenUpdatingP
+$s014PremiumUpsell_A18DestinationPageAPI0acD17LastSeenProvidingP
+$s014PremiumUpsell_A18DestinationPageAPI0acD25LastSeenProvidingDelegateP
+$s014PremiumUpsell_A19DestinationPageImpl0B17MessageRequestingP
+$s014PremiumUpsell_A19DestinationPageImpl0acD10PropertiesP
+$s014PremiumUpsell_A19DestinationPageImpl10URLHandlerP
+$s014PremiumUpsell_A19DestinationPageImpl11ViewFactoryP
+$s014PremiumUpsell_A19DestinationPageImpl12PDPViewModelP
+$s014PremiumUpsell_A19DestinationPageImpl13PDPDataLoaderP
+$s014PremiumUpsell_A19DestinationPageImpl17NavigationHandlerP
+$s014PremiumUpsell_A19DestinationPageImpl19PDPComponentFactoryP
+$s014PremiumUpsell_A19DestinationPageImpl21EventFactoryProvidingP
+$s014PremiumUpsell_A19DestinationPageImpl22HeaderOverrideProviderP
+$s014PremiumUpsell_A19DestinationPageImpl22NavigationBarViewModelP
+$s014PremiumUpsell_A19DestinationPageImpl24PDPViewModelViewDelegateP
+$s014PremiumUpsell_A19DestinationPageImpl25AccordionExpansionHandlerP
+$s014PremiumUpsell_A19DestinationPageImpl26HyperlinkStringAttributingP
+$s014PremiumUpsell_A19DestinationPageImpl29PDPFeatureFlagSignalProvidingP
+$s014PremiumUpsell_A19DestinationPageImpl32ImpressionReasonOverrideProviderP
+$s014PremiumUpsell_A20DestinationBadgeImpl0D10PropertiesP
+$s014PremiumUpsell_A20DestinationBadgeImpl0D11ControllingP
+$s014PremiumUpsell_A20DestinationBadgeImpl0D11DataCachingP
+$s014PremiumUpsell_A20DestinationBadgeImpl0D11DataLoadingP
+$s014PremiumUpsell_A3API0A17DestinationLoggerP
+$s014PremiumUpsell_A3API0A29DataResponseTTLParserProtocolP
+$s014PremiumUpsell_A3API0A29DestinationContentURIResolverP
+$s014PremiumUpsell_A3API17SPTPremiumServiceP
+$s014PremiumUpsell_A3API22PageDataCache_OBJCONLYP
+$s014PremiumUpsell_A3API23NavigationItemDecoratorP
+$s014PremiumUpsell_A4Impl0A23DestinationEventFactoryP
+$s014PremiumUpsell_A4Impl0A23DestinationPageProviderP
+$s014PremiumUpsell_A4Impl0A33DestinationScrollViewEventFactoryP
+$s014PremiumUpsell_A4Impl0A36DestinationHubsComponentEventFactoryP
+$s014PremiumUpsell_A4Impl0A37DestinationSettingsButtonEventFactoryP
+$s014PremiumUpsell_A4Impl0aB11EventLoggerP
+$s014PremiumUpsell_A4Impl13PageDataCacheP
+$s014PremiumUpsell_A4Impl15EndpointManagerP
+$s014PremiumUpsell_A4Impl15PersistentCacheP
+$s014PremiumUpsell_A4Impl17DeviceIDProvidingP
+$s014PremiumUpsell_A4Impl21LocalizationProvidingP
+$s014PremiumUpsell_A4Impl21PersistentCacheRecordP
+$s014PremiumUpsell_A4Impl21UserDefaultsProvidingP
+$s014PremiumUpsell_A4Impl23PersistentCacheResponseP
+$s014PremiumUpsell_A4Impl36OverrideOfferEndDateProviderProtocolP
+$s014PremiumUpsell_B10ServiceAPI0B10DataLoaderP
+$s014PremiumUpsell_B10ServiceAPI0B11ViewFactoryP
+$s014PremiumUpsell_B10ServiceAPI0B16ViewModelFactoryP
+$s014PremiumUpsell_B10ServiceAPI0B9ViewModelP
+$s014PremiumUpsell_B10ServiceAPI0b9ViewModelE8DelegateP
+$s014PremiumUpsell_B10ServiceAPI0bC0P
+$s014PremiumUpsell_B10ServiceAPI22NavigationBarViewModelP
+$s017PodcastDataLayer_bC9LegacyAPI010OBJC_ONLY_B23LoaderSubscriptionTokenP
+$s023SubscriptionManagement_A7ViewKit0aC11DataLoadingP
+$s025ExplicitContentFiltering_abC10SettingAPI0aB19LockedStateObserverP
+$s028SubscriptionManagement_AddOnB8PageImpl0cdB6LoggerP
+$s028SubscriptionManagement_AddOnB8PageImpl24AuthorizeUrlTaskProtocolP
+$s028SubscriptionManagement_AddOnB8PageImpl30AuthorizedURLDecoratorProtocolP
+$s037SubscriptionManagement_PremiumAccountB3API010SPTPremiumdB7ServiceP
+$s037SubscriptionManagement_PremiumAccountB3API0cA10ControllerP
+$s037SubscriptionManagement_PremiumAccountB3API0cA10DataSourceP
+$s037SubscriptionManagement_PremiumAccountB3API0cA5ModelP
+$s037SubscriptionManagement_PremiumAccountB3API0cA8ObserverP
+$s037SubscriptionManagement_PremiumAccountB3API0cA8ProviderP
+$s037SubscriptionManagement_PremiumAccountB3API14AvailablePlansP
+$s037SubscriptionManagement_PremiumAccountB4Impl0A10DataLoaderP
+$s037SubscriptionManagement_PremiumAccountB4Impl0cA13StatusFetcherP
+$s037SubscriptionManagement_PremiumAccountB4Impl11TestManagerP
+$s08Shuffle_A11SettingsAPI0aB18ProductStateClientP
+$s09Playlist_A11PlatformAPI011SPTPlaylistB17FieldIs19PlusOnlyP
+$s09Playlist_A11PlatformAPI011SPTPlaylistB18FieldIsPremiumOnlyP
+$s12FBSDKCoreKit23IAPSKProductsRequestingP
+$s12FBSDKCoreKit28IAPSKProductsRequestCreatingP
+$s12Kodiak_Table05KeyedB12SubscriptionP
+$s12Kodiak_Table07UntypedB12SubscriptionP
+$s13BetamaxSDKAPI20LicenseSecureStorageP
+$s14Account_ECMKit42OBJC_ONLY_PremiumStatusRowSettingsDelegateP
+$s17Account_CommonAPI0A28ProductInformationControllerP
+$s21Campfire_ChatPageImpl20PlayedReceiptTrackerP
+$s21Campfire_ChatPageImpl24GifFrameLoadSubscriptionP
+$s21Campfire_ChatPageImpl35BlockedUserJoinedDialogPresentationP
+$s21DSA_SettingMonitorAPI0bC17SubscriptionTokenP
+$s22NowPlaying_ElementsAPI33ShuffleMftPlusQueueElementFactoryP
+$s22Offline_DeadEndsUIImpl34DownloadedContentSubscriptionTokenP
+$s22Profile_BlockedListAPI0bC7ServiceP
+$s22Profile_BlockedListAPI29ContextMenuItemPopUpPresenterP
+$s22RemoteConfigurationSDK12ProductStateP
+$s22RemoteConfigurationSDK17ProductStateValueP
+$s22RemoteConfigurationSDK18ProductStateParserP
+$s22RemoteConfigurationSDK19ProductStateStorageP
+$s22RemoteConfigurationSDK20ProductStateInjectorP
+$s22RemoteConfigurationSDK20ProductStateResolverP
+$s24Offline_PlayableCacheAPI0A30BackupContentSubscriptionTokenP
+$s26ReinventFree_OnDemandUIAPI0aB21PremiumPanelViewModelP
+$s27ContentDelivery_DownloadAPI26VideoBandwidthSubscriptionP
+$s27OnDemandTrial_ControllerAPI05SPTOnbC7ServiceP
+$s27OnDemandTrial_ControllerAPI0abC8ProviderP
+$s27ReinventFree_DebugToolsImpl12ProductStateP
+$s27ReinventFree_DebugToolsImpl17ProductStateValueP
+$s27RemoteConfiguration_AuthAPI20ProductStateNotifierP
+$s27RemoteConfiguration_AuthAPI20ProductStateObserverP
+$s27RemoteConfiguration_AuthAPI27ProductStateResolverServiceP
+$s28OnDemandTrial_ControllerImpl08SPTOptInC13StateObserverP
+$s28OnDemandTrial_ControllerImpl0C36ConfigurationManualOptInUserSettingsP
+$s28OnDemandTrial_ControllerImpl0abC16ProviderInternalP
+$s28OnDemandTrial_ControllerImpl10DataLoaderP
+$s28OnDemandTrial_ControllerImpl11TestManagerP
+$s29OnDemandTrial_ControllerUIAPI0C17EducationProviderP
+$s29OnDemandTrial_ControllerUIAPI0C22EducationSnackbarStateP
+$s29OnDemandTrial_ControllerUIAPI0abC10UIProviderP
+$s29OnDemandTrial_ControllerUIAPI0abC9UIServiceP
+$s30OnDemandTrial_ControllerUIImpl0C28FeatureEducationUserSettingsP
+$s31ExternalIntegration_ServicesAPI0aB24ContentSubscriptionTokenP
+$s31ExternalIntegration_ServicesAPI0aB27CollectionSubscriptionTokenP
+$s31GatedContent_PodcastPaywallsAPI010SPTPodcastD7ServiceP
+$s31GatedContent_PodcastPaywallsAPI0cD13AccessManagerP
+$s31PlaylistMixing_ConfigurationAPI0B19OptInProductHandlerP
+$s31SubscriptionManagement_ShareKit20PMIActivityPresenterP
+$s32GatedContent_PodcastPaywallsImpl0cD14WebViewFactoryP
+$s32GatedContent_PodcastPaywallsImpl0cD17WebViewControllerP
+$s32GatedContent_PodcastPaywallsImpl23AudiobookCheckoutLoaderP
+$s32GatedContent_PodcastPaywallsImpl31CheckoutOnWebOverlayCoordinatorP
+$s33Audiobook_PremiumAccessUpdatesAPI0bC14UpdateRegistryP
+$s33Audiobook_PremiumAccessUpdatesAPI0bcD7ServiceP
+$s33ExternalIntegration_ProvidersImpl28HomeSubscriptionTokenFactoryP
+$s33OnDemandTrial_ShuffleEducationAPI0dE7ServiceP
+$s33OnDemandTrial_ShuffleEducationAPI0dE9PresenterP
+$s34Audiobook_PremiumConsumptionCapAPI0acD10PresentingP
+$s34Audiobook_PremiumConsumptionCapAPI0acD7ServiceP
+$s35Audiobook_PremiumConsumptionCapImpl0A19CappingCopyProviderP
+$s35Audiobook_PremiumConsumptionCapImpl0aC14WebViewFactoryP
+$s35Audiobook_PremiumConsumptionCapImpl0aC17WebViewControllerP
+$s35Audiobook_PremiumConsumptionCapImpl0acD12EventHandlerP
+$s35Audiobook_PremiumConsumptionCapImpl18CappingSheetLoggerP
+$s35Audiobook_PremiumConsumptionCapImpl20AuthorizedURLFetcherP
+$s35LiveEvents_ConcertsCampaignPageImpl30DeclineOfferEligibilityLoadingP
+$s37Audiobook_PremiumTopUpsDetailPageImpl0b6TopupsE14LoggerProtocolP
+$s38SubscriptionManagement_BillingModelKit0C10DataLoaderP
+$s38SubscriptionManagement_BillingModelKit0C17WebViewControllerP
+$s38SubscriptionManagement_BillingPageImpl0C6LoggerP
+$s40SubscriptionManagement_AvailablePlansAPI0cD7ServiceP
+$s42GenAlphaBlocking_AddBlockedContentPageImpl0F12StateUpdaterP
+$s42GenAlphaBlocking_AddBlockedContentPageImpl0F7BlockerP
+$s42QualityTools_EmployeeNaggingProductionImpl6LoggerP
+$s42SubscriptionManagement_PlanDetailsModelKit0cD10DataLoaderP
+$s42SubscriptionManagement_PlanDetailsPageImpl0cD9ViewModelP
+$s42SubscriptionManagement_YourPremiumPageImpl09ShowValuecD9ViewModelP
+$s42SubscriptionManagement_YourPremiumPageImpl0cD6LoggerP
+$s42SubscriptionManagement_YourPremiumPageImpl0cD9ViewModelP
+$s42SubscriptionManagement_YourPremiumPageImpl12MetadataCardP
+$s42SubscriptionManagement_YourPremiumPageImpl13ShowValueItemP
+$s43SubscriptionManagement_FamilyViewServiceAPI0cdE0P
+$s43SubscriptionManagement_FamilyViewServiceAPI0cdE15LoadableFactoryP
+$s43SubscriptionManagement_PlanOverviewModelKit09ShowValuecD10DataLoaderP
+$s43SubscriptionManagement_PlanOverviewModelKit0cD10DataLoaderP
+$s43SubscriptionManagement_PlanOverviewModelKit0cD17WebViewControllerP
+$s43SubscriptionManagement_PlanOverviewModelKit24AuthorizeUrlTaskProtocolP
+$s43SubscriptionManagement_PlanOverviewModelKit25BadgeVisibilityInteractorP
+$s43SubscriptionManagement_PlanOverviewModelKit26YourPremiumBadgeDataSourceP
+$s43SubscriptionManagement_PlanOverviewModelKit30AuthorizedURLDecoratorProtocolP
+$s43SubscriptionManagement_PlanOverviewPageImpl0cD15CellCoordinatorP
+$s43SubscriptionManagement_PlanOverviewPageImpl0cD27CellRootContentConfigurableP
+$s43SubscriptionManagement_PlanOverviewPageImpl0cD6LoggerP
+$s43SubscriptionManagement_PlanOverviewPageImpl0cD9ViewModelP
+$s44Audiobook_PremiumConsumptionTrackingPageImpl0bcD14LoggerProtocolP
+$s44Audiobook_PremiumConsumptionTrackingPageImpl0bcD14WebViewFactoryP
+$s44Audiobook_PremiumConsumptionTrackingPageImpl0bcD17WebViewControllerP
+$s44Audiobook_PremiumConsumptionTrackingPageImpl20AuthorizedURLFetcherP
+$s44ReinventFree_ContextualUpsellPremiumPromoAPI0cdeF7ServiceP
+$s44ReinventFree_ContextualUpsellPremiumPromoAPI0eF8ProviderP
+$s44SubscriptionManagement_MemberDetailsModelKit06ToggleE0P
+$s44SubscriptionManagement_MemberDetailsModelKit23SnackbarMessageProviderP
+$s44SubscriptionManagement_MemberDetailsPageImpl0cD12ListRendererP
+$s44SubscriptionManagement_MemberDetailsPageImpl0cD4ViewP
+$s44SubscriptionManagement_MemberDetailsPageImpl7EmitterP
+$s44SubscriptionManagement_VideoSettingsModelKit0cD23SnackbarMessageProviderP
+```
+
+### Payload/Spotify.app/GoogleSignIn.bundle/Roboto-Bold.ttf
+```
+Font data copyright Google 2014RobotoBoldGoogle:Roboto:2014Roboto BoldVersion 2.000980; 2014Roboto-BoldRoboto is a trademark of Google.GoogleGoogle.comChristian RobertsonLicensed under the Apache License, Version 2.0http://www.apache.org/licenses/LICENSE-2.0Roboto Bold
+```
+
+### Payload/Spotify.app/Assets.car
+```
+third-party-licenses
+```
+
+### Payload/Spotify.app/Services.plist
+```
+(PremiumUpsell_PremiumImpl.PremiumService_
+.Profile_BlockedListImpl.BlockedListServiceImpl_
+1OnDemandTrial_ControllerImpl.OnDemandTrialService_
+1PremiumUpsell_UpsellServiceImpl.UpsellServiceImpl_
+6Account_TrialImpl.SPTAccountTrialServiceImplementation_
+7GatedContent_PodcastPaywallsImpl.PodcastPaywallsService_
+8QualityTools_CrashReporterImpl.ProductStateStateKeysImpl_
+9OnDemandTrial_ControllerUIImpl.OnDemandTrialUIServiceImpl_
+>OnDemandTrial_ShuffleEducationImpl.ShuffleEducationServiceImpl_
+BAudiobook_PremiumAccessUpdatesImpl.PremiumAccessUpdatesServiceImpl_
+BSubscriptionManagement_FamilyViewServiceImpl.FamilyViewServiceImpl_
+FAudiobook_PremiumConsumptionCapImpl.AudiobookConsumptionCapServiceImpl_
+FPremiumUpsell_PremiumDestinationPageImpl.PremiumDestinationServiceImpl_
+GSubscriptionManagement_AvailablePlansPageImpl.AvailablePlansServiceImpl_
+KSubscriptionManagement_YourPlanSideDrawerImpl.YourPlanSideDrawerServiceImpl_
+MSubscriptionManagement_AllocationRequesterImpl.AllocationRequesterServiceImpl_
+SGatedContent_PodcastPaywallsSubscriberFlowImpl.PodcastPaywallsSubscriberFlowService_
+SSubscriptionManagement_PremiumAccountManagementImpl.PremiumAccountManagementService_
+UReinventFree_ContextualUpsellPremiumPromoImpl.ContextualUpsellPremiumPromoServiceImpl_
+]GenAlphaBlocking_ManageBlockedContentDataSourceImpl.ManageBlockedContentDataSourceServiceImpl_
+`Audiobook_PremiumConsumptionCapPlayerListenerImpl.PremiumConsumptionCapPlayerListenerServiceImpl_
+cSubscriptionManagement_UnboxingEntryPointAvailabilityImpl.UnboxingEntryPointAvailabilityServiceImpl_
+```
+
+### Payload/Spotify.app/PlugIns/WidgetExtension.appex/WidgetExtension
+```
+ProductVersion
+_$s7Combine10SubscriberP7receive12subscriptionyAA12Subscription_p_tFTj
+_$s7Combine10SubscriberP7receive12subscriptionyAA12Subscription_p_tFTq
+_$s7Combine12SubscriptionMp
+_$s7Combine12SubscriptionP7requestyyAA11SubscribersO6DemandVFTj
+_$s7Combine12SubscriptionP7requestyyAA11SubscribersO6DemandVFTq
+_$s7Combine12SubscriptionPAA06CustomA21IdentifierConvertibleTb
+_$s7Combine12SubscriptionPAA11CancellableTb
+_$ss15_print_unlockedyyx_q_zts16TextOutputStreamR_r0_lF
+_os_unfair_lock_unlock
+lockedItemsSizeInBytes
+storeData:forKey:locked:withCallback:onQueue:
+subjectSubscription
+unlock
+unlockDataForKeys:callback:onQueue:
+wipeLockedFilesWithCallback:onQueue:
+wipeNonLockedFilesWithCallback:onQueue:
+```
+
+### Payload/Spotify.app/PlugIns/WidgetExtension.appex/SPTStrings.bundle/Assets.car
+```
+ans et plus seulement",
+ans et plus","19
+```
+
+### Payload/Spotify.app/PlugIns/NotificationServiceExtension.appex/NotificationServiceExtension
+```
+unlock
+```
+
+### Payload/Spotify.app/Info.plist
+```
+	<string>This lets you unlock new ways of interacting with other devices compatible with Spotify via Bluetooth.</string>
+```
+
+### Payload/Spotify.app/Frameworks/spotifyglass.dylib
+```
+/blob/main/LICENSE
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+Chroma Plus
+Could not open Plus
+Could not verify Plus status
+Gemini isn't offered in your region
+Get Plus
+I already have Plus
+Licenses
+Listening stats comes with Plus. Open Mod Settings > Account to check your access.
+MIT License, Copyright (c) 2018-2022 Jaakko Pasanen
+No Plus on this account
+Part of Chroma Plus, together with
+Part of Plus
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Plus
+Plus can't be checked because this iPhone's Keychain can't be read right now. Try again in a moment.
+Plus can't be checked while this iPhone's date and time are off. Set them automatically in Settings, then refresh.
+Plus can't be checked yet
+Plus comes with a Patreon membership.
+Plus comes with a Patreon membership. It opens once you sign in.
+Plus from
+Plus is not active
+Plus is on
+Plus is on for this iPhone until %@.
+Plus is on for this iPhone.
+Plus is paused because this iPhone's date and time look wrong. Set them automatically in Settings, then refresh.
+Plus is paused until this iPhone checks in with chroma.pw, which it needs to do at least every 14 days.
+Plus is required to use audio effects.
+Plus not verified
+Plus pass no longer active
+Plus pass unavailable
+Plus paused until this iPhone checks in
+Plus paused, check the date and time
+Plus status could not be verified. Refresh it, or check the date and time.
+Plus until 
+PolyForm Strict License 1.0.0
+Presets come with Plus
+ProductVersion
+SGPlusCheckoutAnchor
+SecTaskCopyValueForEntitlement
+Sign in again to use Plus
+Sing's voice model comes with Plus.
+Spotify's licensed catalogue
+T@"NSString",&,N,V_blockedTrack
+T@"NSString",C,N,V_plusFeature
+T@?,C,N,V_locked
+TB,N,V_locked
+TB,N,V_plus
+TB,R,N,V_plusLocked
+Telemetry blocked so far
+The mod's own license, and the code from others it includes.
+This iPhone has a new sign-in key, as happens after moving to a new iPhone or installing with a different certificate. Sign in again to use Plus.
+This iPhone was signed out of chroma.pw. Sign in again to use Plus.
+This iPhone's Keychain can't be read right now, as happens after a restart until the first unlock. Try again in a moment.
+What Plus adds
+What you set up here is kept for when Plus is on.
+Your account and Plus
+YourLibraryFolderHeader.plus
+YourLibraryHeader.plus
+_CVPixelBufferUnlockBaseAddress
+_blockedTrack
+_kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+_locked
+_os_unfair_lock_unlock
+_passBlocked
+_plus
+_plusFeature
+_plusLocked
+_pthread_mutex_unlock
+apps.ipad.badge.plus
+apps.iphone.badge.plus
+at.badge.plus
+badge.plus.radiowaves.forward
+badge.plus.radiowaves.right
+bag.badge.plus
+bag.fill.badge.plus
+beats.studiobuds.plus
+beats.studiobuds.plus.chargingcase
+beats.studiobuds.plus.chargingcase.fill
+beats.studiobuds.plus.left
+beats.studiobuds.plus.right
+beats.studiobudsplus
+beats.studiobudsplus.chargingcase
+beats.studiobudsplus.chargingcase.fill
+beats.studiobudsplus.left
+beats.studiobudsplus.right
+blockedTrack
+book.badge.plus
+book.badge.plus.fill
+calendar.badge.plus
+cart.badge.plus
+cart.fill.badge.plus
+checkmark.circle.badge.plus
+checkmark.circle.badge.plus.fill
+chroma.pw shows no active Plus for %@. If your membership uses another email, sign out and sign in with that one.
+circle.badge.plus
+circle.badge.plus.fill
+doc.badge.plus
+doc.fill.badge.plus
+document.badge.plus
+document.badge.plus.fill
+envelope.badge.plus
+envelope.badge.plus.fill
+externaldrive.badge.plus
+externaldrive.fill.badge.plus
+folder.badge.plus
+folder.fill.badge.plus
+gauge.badge.plus
+gauge.medium.badge.plus
+gauge.with.dots.needle.bottom.50percent.badge.plus
+geminiOffered
+goforward.plus
+hifispeaker.2.badge.plus
+hifispeaker.2.badge.plus.fill
+hifispeaker.and.homepod.badge.plus
+hifispeaker.and.homepod.badge.plus.fill
+hifispeaker.and.homepod.mini.badge.plus
+hifispeaker.and.homepod.mini.badge.plus.fill
+hifispeaker.badge.plus
+hifispeaker.badge.plus.fill
+homepod.2.badge.plus
+homepod.2.badge.plus.fill
+homepod.and.homepod.mini.badge.plus
+homepod.and.homepod.mini.badge.plus.fill
+homepod.badge.plus
+homepod.badge.plus.fill
+homepod.mini.2.badge.plus
+homepod.mini.2.badge.plus.fill
+homepod.mini.badge.plus
+homepod.mini.badge.plus.fill
+hourglass.badge.plus
+inset.filled.center.rectangle.badge.plus
+ios-account-common.premium_plans_entry_point_row_enabled
+ios-account-common.premium_referrals_settings_item_enabled
+ios-account-common.premium_row_enabled
+ios-artist-releases-impl.disable_blocked_content_for_gen_alpha
+ios-artist-releases-impl.show_locked_album_ui
+ios-betamax-sdkintegration.kub_stop_requesting_video_data_on_screen_locked
+ios-campfire-properties-impl.autoplay_receipt_enabled
+ios-campfire-properties-impl.per_chat_receipt_settings_enabled
+ios-campfire-properties-impl.played_receipt_episode_threshold_seconds
+ios-campfire-properties-impl.played_receipt_track_threshold_seconds
+ios-campfire-properties-impl.played_receipt_tracking_enabled
+ios-campfire-properties-impl.playing_receipt_indicator_enabled
+ios-campfire-properties-impl.receipt_indicator_enabled
+ios-campfire-properties-impl.receipt_sending_enabled
+ios-campfire-properties-impl.receipt_settings_enabled
+ios-campfire-properties-impl.seen_receipt_indicator_enabled
+ios-campfire-properties-impl.seen_receipt_setting_enabled
+ios-endless-djmusic-impl.is_premium_only
+ios-entitysegments-impl.mft_plus_entity_segments_disable_enabled
+ios-feature-adsidentitytracking.adsidentitytracking_storekit_rendered_enabled
+ios-feature-age-verification.ignore_product_state_for_entry_points
+ios-feature-auth.only_premium_users_allowed_enabled
+ios-feature-contextualshuffle.consider_premium_on_demand_trial_possible_default_true
+ios-feature-contextualshuffle.is_enabled_for_on_demand_trial
+ios-feature-freetierplaylist.enable_dual_subscription_data_loader
+ios-feature-live.purchased_event_day_card_enabled
+ios-feature-ondemandtrial-ui.enable_feature_education_cards_audio_quality
+ios-feature-ondemandtrial-ui.enable_feature_education_cards_jam
+ios-feature-ondemandtrial-ui.enable_feature_education_cards_queue
+ios-feature-ondemandtrial-ui.enable_feature_education_snackbar
+ios-feature-ondemandtrial-ui.enable_trial_signifiers
+ios-feature-ondemandtrial.allow_automatically_opt_in_after_message_period
+ios-feature-ondemandtrial.enable_call_trials_facade
+ios-feature-ondemandtrial.enable_mini_trial
+ios-feature-ondemandtrial.enable_one_day_trial_end_message
+ios-feature-ondemandtrial.enable_opt_in_trials
+ios-feature-ondemandtrial.trial_message_period_active_days
+ios-feature-ondemandtrial.trial_message_period_total_days
+ios-feature-premium-destination-badge.badge_enabled
+ios-feature-premium-destination-page.enable_elements
+ios-feature-premium-destination-page.use_new_pdp_endpoint
+ios-feature-premiumaccountmanagement.billing_row_enabled
+ios-feature-premiumaccountmanagement.flavor_page_linkouts_enabled
+ios-feature-premiumaccountmanagement.narwhal_enabled
+ios-feature-premiumaccountmanagement.narwhal_enabled_br
+ios-feature-premiumaccountmanagement.pam_prefetch_account_subscription_status
+ios-feature-premiumaccountmanagement.plan_overview_impressions_v2_enabled
+ios-feature-premiumaccountmanagement.plan_verification_entry_enabled
+ios-feature-premiumaccountmanagement.tiered_family_plan_overview_enabled
+ios-feature-premiumaccountmanagement.use_long_plan_names_enabled
+ios-feature-premiumdestination.premium_destination_hubsless
+ios-feature-premiumdestination.premium_destination_snackbar_experiment
+ios-feature-premiumdestination.premium_destination_swift_content_operations_enabled
+ios-feature-premiumdestination.premium_destination_swift_view_controller_enabled
+ios-feature-queue.is_queue_entry_point_enabled_for_mft_plus
+ios-feature-reinventfree-ondemandui-impl.enable_premium_panel
+ios-feature-reinventfreenpv.mftplus_education_back_skip_enabled
+ios-feature-reinventfreenpv.mftplus_education_seeking_enabled
+ios-feature-reinventfreenpv.mftplus_unified_content_switcher_enabled
+ios-feature-settings.offline_status_subscription_debouncing_milliseconds
+ios-feature-subscriptionmanagement.plan_member_invite_v2_enabled
+ios-feature-unboxingentrypointavailability.your_premium_benefits_entry_point
+ios-feature-video.offline_license_redownload_threshold_days
+ios-jam-queueintegrationimpl.enable_jam_capped_premium_queue_banner
+ios-liveaudio-livestreampage.free_to_premium_design_refresh
+ios-qualitytools-employeenaggingproductionimpl.is_enabled
+ios-qualitytools-employeenaggingproductionimpl.nagging_interval
+ios-reinventfree-contextualupsellpremiumpromo-impl.is_promo_cta_enabled
+ios-reinventfree-contextualupsellpremiumpromo-impl.show_time_cap_upsell_with_premium_badge
+ios-remoteconfiguration-bootstrap-impl.login_trials_enabled
+ios-smartshuffle-experience-impl.use_product_state_experience_resolver
+ios-smartshuffle-experience-impl.use_product_state_experience_resolver_for_on_demand_streaming_rules
+ios-sociallistening-configuration-impl.premium_gated_start_jam_buttons_enabled
+ios-subscriptionmanagement-allocationrequestdialogpage-impl.allocation_request_dialog_enabled
+ios-subscriptionmanagement-allocationrequestdialogpage-impl.allocation_request_dialog_inline_error_enabled
+ios-subscriptionmanagement-managesubscriptionpage-impl.use_stubbed_data
+ios-subscriptionmanagement-premiumaccountmanagementv2page-impl.managed_account_details_page_enabled
+ios-subscriptionmanagement-premiumaccountmanagementv2page-impl.regular_member_sub_account_details_page_enabled
+ios-subscriptionmanagement-regularmembersubaccountdetailspage-impl.allocations_enabled
+ios-subscriptionmanagement-regularmembersubaccountdetailspage-impl.enable_member_audiobook_management
+ios-subscriptionmanagement-regularmembersubaccountdetailspage-impl.enable_member_video_settings_management
+ios-subscriptionmanagement-videosettingspage-impl.enable_music_videos_toggle
+ios-subscriptionmanagement-yourpremiumpage-impl.show_value_subscription_card_enabled
+ios-subscriptionmanagement-yourpremiumpage-impl.your_premium_multi_sub_enabled
+ios-videorecommendations-entrypoints-impl.artist_carousel_show_for_mft_plus
+ios-videorecommendations-entrypoints-impl.artist_carousel_show_for_mft_plus_when_capped
+ios-videorecommendations-entrypoints-impl.npv_scroll_carousel_show_for_mft_plus
+ios-videorecommendations-entrypoints-impl.npv_scroll_carousel_show_for_mft_plus_when_capped
+ios-videorecommendations-entrypoints-impl.search_carousel_show_for_mft_plus
+ios-videorecommendations-entrypoints-impl.search_carousel_show_for_mft_plus_when_capped
+license
+licenseplate
+licenseplate.fill
+link.badge.plus
+locked
+macwindow.badge.plus
+memories.badge.plus
+mic.badge.plus
+mic.fill.badge.plus
+microphone.badge.plus
+microphone.badge.plus.fill
+minus.forwardslash.plus
+minus.plus.and.fluid.batteryblock
+minus.plus.batteryblock
+minus.plus.batteryblock.exclamationmark
+minus.plus.batteryblock.exclamationmark.fill
+minus.plus.batteryblock.fill
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyGlassAppGroups.dylib
+```
+_SecTaskCopyValueForEntitlement
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyShared.framework/Fonts.bundle/spoticon.ttf
+```
+folder-plus16
+folder-plus24
+locked-active16
+locked-active24
+locked16
+locked24
+nike-plus16
+nike-plus24
+plus-alt-active16
+plus-alt-active24
+plus-alt16
+plus-alt24
+plus-minus16
+plus-minus24
+plus16
+plus24
+react24	receipt16	receipt24
+unlocked-active16
+unlocked-active24
+unlocked16
+unlocked24
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyShared.framework/Fonts.bundle/SpotifyMixUI-Bold.ttf
+```
+plus.tf
+plusminus.tf
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyShared.framework/Fonts.bundle/SpotifyMixUI-Regular.ttf
+```
+plus.tf
+plusminus.tf
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyShared.framework/Fonts.bundle/SpotifyMixUITitleVariable.ttf
+```
+plus.tf
+plusminus.tf
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyShared.framework/SpotifyShared
+```
+	3premiumLiteGBBAlternateAC0c1_d1_eH0Cv
+	4premiumFamilyExperimentalAlternateAC0c1_d1_eH0Cv
+	5premiumFamilyExperimentalAC0c1_d1_eH0Cv
+	5premiumStudentExperimentalAlternateAC0c1_d1_eH0Cv
+	6premiumStudentExperimentalAC0c1_d1_eH0Cv
+	7premiumAC0c1_d1_eH0Cv
+	7premiumLiteGBBTestAlternateAC0c1_d1_eH0Cv
+	premium
+	premiumLiteAlternateAC0c1_d1_eH0Cv
+	premiumLiteGBBTestAC0c1_d1_eH0Cv
+0plusAlt
+0plusAltSelected
+0premiumDuoAC0c1_d1_eH0Cv
+0premiumDuoAGv
+1premiumDuoExperimentalAlternateAC0c1_d1_eH0Cv
+1premiumDuoExperimentalAlternateAGv
+2plusAltDeselected
+2plusAltDeselectedConfettiSubduedAGv
+3premiumLiteGBBAlternateAGv
+4premiumFamilyExperimentalAlternateAGv
+5premiumFamilyExperimentalAGv
+5premiumStudentExperimentalAlternateAGv
+6premiumStudentExperimentalAGv
+7plusAltDeselectedUndoGray70AGv
+7premiumAGv
+7premiumLiteGBBTestAlternateAGv
+PlusACv
+PlusAEv
+ProductVersion
+SetProductionAssertionHandler
+T@"SPTEncoreColorThemeColorSet",N,R,Vpremium
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumDuo
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumDuoExperimental
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumDuoExperimentalAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumExperimental
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumExperimentalAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumFallback
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumFallbackAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumFamily
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumFamilyExperimental
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumFamilyExperimentalAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumLite
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumLiteAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumLiteGBB
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumLiteGBBAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumLiteGBBTest
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumLiteGBBTestAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumMini
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumPlatinum
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumPlatinumAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumPlatinumTest
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumPlatinumTestAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStandard
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStandardAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStandardTest
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStandardTestAlternate
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStudent
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStudentExperimental
+T@"SPTEncoreColorThemeColorSet",N,R,VpremiumStudentExperimentalAlternate
+_$s7SwiftUI16SubscriptionViewVMa
+_$s7SwiftUI16SubscriptionViewVMn
+_$s7SwiftUI16SubscriptionViewVyxq_GAA0D0AAMc
+_$ss15_print_unlockedyyx_q_zts16TextOutputStreamR_r0_lF
+_SPTSetProductionAssertionHandler
+_kSecAttrAccessibleAfterFirstUnlock
+_kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+_os_unfair_lock_unlock
+collectGarbageForceExpire:forceLocked:
+folderPlus
+ikePlusACv
+ikePlusAEv
+locked
+lockedActive
+lockedItemsSizeInBytes
+nikePlus
+oplus
+plus
+plus-alt-deselected-black
+plus-alt-deselected-confetti-subdued
+plus-alt-deselected-confetti-white
+plus-alt-deselected-undo-gray70
+plus-alt-deselected-white
+plus-alt-selected-black
+plus-alt-selected-confetti-subdued
+plus-alt-selected-confetti-white
+plus-alt-selected-gray70
+plus-alt-selected-white
+plusAlt
+plusAltActive
+plusAltSelectedConfettiWhiteAGv
+plusAltSelectedGray70AGv
+plusMinus
+plusmn
+premium
+premiumDuo
+premiumDuoExperimental
+premiumDuoExperimentalAC0c1_d1_eH0Cv
+premiumDuoExperimentalAGv
+premiumDuoExperimentalAlternate
+premiumExperimental
+premiumExperimentalAlternate
+premiumFallback
+premiumFallbackAlternate
+premiumFamily
+premiumFamilyAC0c1_d1_eH0Cv
+premiumFamilyAGv
+premiumFamilyExperimental
+premiumFamilyExperimentalAlternate
+premiumLite
+premiumLiteAlternate
+premiumLiteAlternateAGv
+premiumLiteGBB
+premiumLiteGBBAlternate
+premiumLiteGBBTest
+premiumLiteGBBTestAGv
+premiumLiteGBBTestAlternate
+premiumMini
+premiumPlatinum
+premiumPlatinumAlternate
+premiumPlatinumTest
+premiumPlatinumTestAlternate
+premiumStandard
+premiumStandardAlternate
+premiumStandardTest
+premiumStandardTestAlternate
+premiumStudent
+premiumStudentExperimental
+premiumStudentExperimentalAlternate
+productive
+productiveDefaultAGv
+productiveExitAGv
+productiveLongest
+productiveShort
+productiveShortest
+receipt
+storeData:forKey:locked:withCallback:onQueue:
+storeData:forKey:ttl:locked:withCallback:onQueue:
+storeDataSync:forKey:ttl:locked:withCallback:onQueue:
+unlock
+unlockDataForKeys:callback:onQueue:
+unlocked
+unlockedACv
+unlockedAEv
+unlockedActive
+unlockedActiveACv
+unlockedActiveAEv
+wipeLocked
+wipeLockedFilesWithCallback:onQueue:
+wipeNonLocked
+wipeNonLockedFilesWithCallback:onQueue:
+```
+
+### Payload/Spotify.app/Frameworks/SpotifyShared.framework/Assets.car
+```
+plus-alt-deselected-black
+plus-alt-deselected-confetti-subdued
+plus-alt-deselected-confetti-white
+plus-alt-deselected-undo-gray70
+plus-alt-deselected-white
+plus-alt-selected-black
+plus-alt-selected-confetti-subdued
+plus-alt-selected-confetti-white
+plus-alt-selected-gray70
+plus-alt-selected-white
+```
+
+
+## Candidate Mach-O files
+Payload/Spotify.app/Frameworks/MetaSmartGlassesKit.framework/MetaSmartGlassesKit: Mach-O 64-bit arm64 dynamically linked shared library, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|NO_REEXPORTED_DYLIBS>
+Payload/Spotify.app/Frameworks/SpotifyGlassAppGroups.dylib: Mach-O 64-bit arm64 dynamically linked shared library, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|NO_REEXPORTED_DYLIBS>
+Payload/Spotify.app/Frameworks/SpotifyShared.framework/SpotifyShared: Mach-O 64-bit arm64 dynamically linked shared library, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|NO_REEXPORTED_DYLIBS|APP_EXTENSION_SAFE|NLIST_OUTOFSYNC_WITH_DYLDINFO>
+Payload/Spotify.app/Frameworks/spotifyglass.dylib: Mach-O 64-bit arm64 dynamically linked shared library, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|NO_REEXPORTED_DYLIBS|HAS_TLV_DESCRIPTORS>
+Payload/Spotify.app/PlugIns/IntentsExtension.appex/IntentsExtension: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE|NLIST_OUTOFSYNC_WITH_DYLDINFO>
+Payload/Spotify.app/PlugIns/NotificationContentExtension.appex/NotificationContentExtension: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE|NLIST_OUTOFSYNC_WITH_DYLDINFO>
+Payload/Spotify.app/PlugIns/NotificationServiceExtension.appex/NotificationServiceExtension: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE|NLIST_OUTOFSYNC_WITH_DYLDINFO>
+Payload/Spotify.app/PlugIns/SpotifyGlassLiveActivity.appex/SpotifyGlassLiveActivity: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>
+Payload/Spotify.app/PlugIns/WidgetExtension.appex/WidgetExtension: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|BINDS_TO_WEAK|PIE|NLIST_OUTOFSYNC_WITH_DYLDINFO>
+Payload/Spotify.app/Spotify: Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|BINDS_TO_WEAK|PIE|HAS_TLV_DESCRIPTORS|NLIST_OUTOFSYNC_WITH_DYLDINFO>
