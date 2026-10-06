@@ -634,6 +634,13 @@ void SGLyricsSetPageCredit(NSString *trackID, SGLyricsCredit *credit) {
 // (third-party api.vkeys.cn); it is renamed to "luoyue" so existing installs keep their setting and
 // the official Tencent musicu source can take the "qqmusic" key.
 void SGLyricsMigrateLegacyKeys(void) {
+    // Run this exactly once. The "qqmusic" -> "luoyue" rename below was a one-time transition for
+    // installs that predate the official Tencent QQ Music source, where the "qqmusic" key meant 落月.
+    // Without the guard it ran on every launch and silently renamed the *official* QQ Music source
+    // back to 落月, dropping it from the order so it showed as Off and 落月 took the top slot on every
+    // restart. The comment above already says "Once, at launch"; this makes it true.
+    static NSString *const kMigrated = @"spotifyglass.lyricsProvidersMigrated";
+    if ([NSUserDefaults.standardUserDefaults boolForKey:kMigrated]) return;
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     NSArray *stored = [defaults arrayForKey:SGKeyLyricsProviders];
     if (stored) {
@@ -648,11 +655,13 @@ void SGLyricsMigrateLegacyKeys(void) {
             }
             if (changed) [defaults setObject:remapped forKey:SGKeyLyricsProviders];
         }
+        [defaults setBool:YES forKey:kMigrated];
         return;
     }
     NSArray<NSString *> *order = fromLegacyKeys();
-    if (!order.count) return;
+    if (!order.count) { [defaults setBool:YES forKey:kMigrated]; return; }
     SGLyricsSetOrder(order);
     SGSetEnabled(SGKeyLyricsAllTracks, SGFlag(kLegacyAllTracks, NO));
     SGLog(@"lyrics: carried the Musixmatch switches over as %@", [order componentsJoinedByString:@", "]);
+    [defaults setBool:YES forKey:kMigrated];
 }
