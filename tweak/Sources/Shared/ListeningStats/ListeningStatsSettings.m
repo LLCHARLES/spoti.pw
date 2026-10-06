@@ -5,6 +5,7 @@
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Shared/Navigation/Links.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "ListeningStats.h"
 
 static const NSUInteger kTop = 10;
@@ -84,6 +85,41 @@ static void confirmClear(void) {
     [SGTopController() presentViewController:alert animated:YES completion:nil];
 }
 
+// The picker's delegate, kept for as long as the picker is up.
+@interface SGListeningImporter : NSObject <UIDocumentPickerDelegate>
+@end
+
+static SGListeningImporter *sg_importer;
+
+static void say(NSString *title, NSString *message) {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [SGTopController() presentViewController:alert animated:YES completion:nil];
+}
+
+@implementation SGListeningImporter
+- (void)documentPicker:(UIDocumentPickerViewController *)picker didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    sg_importer = nil;
+    SGListeningImport(urls, ^(NSUInteger added, NSString *problem) {
+        if (problem) say(@"Nothing imported", problem);
+        else say(@"Imported", added ? [NSString stringWithFormat:@"%lu listens added. Open Listening stats again to see them.", (unsigned long)added]
+                                     : @"Every listen in that was already here.");
+    });
+}
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)picker {
+    sg_importer = nil;
+}
+@end
+
+static void pickHistory(void) {
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeJSON] asCopy:YES];
+    picker.allowsMultipleSelection = YES;
+    sg_importer = [SGListeningImporter new];
+    picker.delegate = sg_importer;
+    picker.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+    [SGTopController() presentViewController:picker animated:YES completion:nil];
+}
+
 UIViewController *SGListeningStatsPage(void) {
     SGModRow *record = SGSwitchRow(@"Record listening", @"Kept only on this iPhone", SGKeyListeningStats);
     record.changed = ^(BOOL on) { SGListeningStatsApply(); };
@@ -95,6 +131,12 @@ UIViewController *SGListeningStatsPage(void) {
     for (SGListeningPeriod period = SGListeningPeriodMonth; period <= SGListeningPeriodAllTime; period++) {
         [sections addObjectsFromArray:periodSections(period)];
     }
+    SGModRow *import = SGActionRow(@"Import Spotify's history", @"The JSON files from your data download", ^{ pickHistory(); });
+    SGModSection *importing = SGNotedSection(nil, @[import],
+        @"Ask Spotify for your data on its account page under Privacy, then pick the StreamingHistory_music or "
+         "Streaming_History_Audio files. Listens already here are not counted twice.");
+    importing.footerLink = @"https://www.spotify.com/account/privacy/";
+    [sections addObject:importing];
     SGModRow *clear = SGActionRow(@"Clear listening stats", nil, ^{ confirmClear(); });
     clear.color = SGRed();
     [sections addObject:SGSection(nil, @[clear])];

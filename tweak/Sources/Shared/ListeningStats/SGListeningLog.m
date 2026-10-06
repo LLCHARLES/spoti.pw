@@ -173,6 +173,33 @@ static const NSTimeInterval kFlushInterval = 30;
     [self save];
 }
 
+// Listens from Spotify's history, [unix seconds, uri, seconds] each, with the names of their tracks.
+- (NSUInteger)importEvents:(NSArray<NSArray *> *)events tracks:(NSDictionary<NSString *, NSArray<NSString *> *> *)tracks {
+    [self load];
+    NSMutableSet<NSString *> *known = [NSMutableSet setWithCapacity:_events.count];
+    for (NSArray *event in _events) [known addObject:[NSString stringWithFormat:@"%lld|%@", [event[0] longLongValue], event[1]]];
+    NSUInteger added = 0;
+    for (NSArray *event in events) {
+        NSString *key = [NSString stringWithFormat:@"%lld|%@", [event[0] longLongValue], event[1]];
+        if ([known containsObject:key]) continue;
+        [known addObject:key];
+        [_events addObject:[event mutableCopy]];
+        added++;
+    }
+    [tracks enumerateKeysAndObjectsUsingBlock:^(NSString *uri, NSArray<NSString *> *info, BOOL *stop) {
+        if (!self->_tracks[uri]) self->_tracks[uri] = info;
+    }];
+    if (added) {
+        // Kept in time order, the playing listen's place moving with it.
+        NSArray *playing = _eventIndex >= 0 && _eventIndex < (NSInteger)_events.count ? _events[(NSUInteger)_eventIndex] : nil;
+        [_events sortUsingComparator:^NSComparisonResult(NSArray *a, NSArray *b) { return [a[0] compare:b[0]]; }];
+        if (playing) _eventIndex = (NSInteger)[_events indexOfObjectIdenticalTo:playing];
+        _dirty = YES;
+        [self save];
+    }
+    return added;
+}
+
 static NSArray<SGListeningEntry *> *top(NSDictionary<NSString *, SGListeningEntry *> *entries, NSUInteger count) {
     NSArray *sorted = [entries.allValues sortedArrayUsingComparator:^NSComparisonResult(SGListeningEntry *a, SGListeningEntry *b) {
         if (a.plays != b.plays) return a.plays > b.plays ? NSOrderedAscending : NSOrderedDescending;
@@ -242,6 +269,69 @@ void SGListeningStatsApply(void) {
 
 SGListeningSummary *SGListeningSummarize(SGListeningPeriod period, NSUInteger count) {
     return [SGListeningLog.shared summarize:period count:count];
+}
+
+// One file's listens: its records turned into events, the names into `tracks`.
+static NSUInteger readHistory(NSURL *file, NSMutableArray<NSArray *> *events, NSMutableDictionary *tracks) {
+    BOOL scoped = [file startAccessingSecurityScopedResource];
+    NSData *data = [NSData dataWithContentsOfURL:file];
+    if (scoped) [file stopAccessingSecurityScopedResource];
+    NSArray *records = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL] : nil;
+    if (![records isKindOfClass:NSArray.class]) return 0;
+    NSDateFormatter *minutes = [NSDateFormatter new];
+    minutes.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    minutes.timeZone = [NSTimeZone timeZoneWithAbbreviation:@"UTC"];
+    minutes.dateFormat = @"yyyy-MM-dd HH:mm";
+    NSISO8601DateFormatter *iso = [NSISO8601DateFormatter new];
+    NSUInteger read = 0;
+    for (NSDictionary *record in records) {
+        if (![record isKindOfClass:NSDictionary.class]) continue;
+        NSString *title, *artist, *uri, *ended;
+        double played;
+        NSDate *end;
+        if (record[@"ts"]) {   // the extended history
+            title = record[@"master_metadata_track_name"];
+            artist = record[@"master_metadata_album_artist_name"];
+            uri = record[@"spotify_track_uri"];
+            ended = record[@"ts"];
+            played = [record[@"ms_played"] doubleValue] / 1000;
+            end = [ended isKindOfClass:NSString.class] ? [iso dateFromString:ended] : nil;
+        } else {               // the account data
+            title = record[@"trackName"];
+            artist = record[@"artistName"];
+            ended = record[@"endTime"];
+            played = [record[@"msPlayed"] doubleValue] / 1000;
+            end = [ended isKindOfClass:NSString.class] ? [minutes dateFromString:ended] : nil;
+        }
+        // Podcasts and records without a track carry no track name.
+        if (![title isKindOfClass:NSString.class] || !title.length || !end || played < 5) continue;
+        if (![artist isKindOfClass:NSString.class]) artist = @"";
+        if (![uri isKindOfClass:NSString.class] || ![uri hasPrefix:@"spotify:track:"]) {
+            uri = [NSString stringWithFormat:@"imported:%@|%@", artist, title];
+        }
+        [events addObject:@[@((long long)(end.timeIntervalSince1970 - played)), uri, @(round(played))]];
+        if (!tracks[uri]) tracks[uri] = @[title, artist, @""];
+        read++;
+    }
+    return read;
+}
+
+void SGListeningImport(NSArray<NSURL *> *files, void (^done)(NSUInteger added, NSString *problem)) {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSMutableArray<NSArray *> *events = [NSMutableArray array];
+        NSMutableDictionary *tracks = [NSMutableDictionary dictionary];
+        NSUInteger read = 0;
+        for (NSURL *file in files) read += readHistory(file, events, tracks);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!read) {
+                done(0, @"No listens in that. Pick the StreamingHistory_music or Streaming_History_Audio files from Spotify's data download.");
+                return;
+            }
+            NSUInteger added = [SGListeningLog.shared importEvents:events tracks:tracks];
+            SGLog(@"listening stats: %lu listens read, %lu new", (unsigned long)read, (unsigned long)added);
+            done(added, nil);
+        });
+    });
 }
 
 void SGListeningClear(void) {
