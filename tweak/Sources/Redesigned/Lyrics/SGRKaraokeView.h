@@ -21,4 +21,8 @@
 // Asked as a tap lands on the lines, before it seeks or opens what a line means; NO leaves the tap to
 // whoever else watches the touch. Nil takes every tap.
 @property (nonatomic, copy) BOOL (^takesTap)(void);
+// The landscape lyrics' own view (LandscapeLyrics.x), which lyricsOnScreen leaves out.
+@property (nonatomic) BOOL landscape;
+// Some lyrics view other than the landscape one is showing lines on screen: the player's or the lyrics page's.
++ (BOOL)lyricsOnScreen;
 @end

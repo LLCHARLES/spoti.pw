@@ -16,6 +16,7 @@
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Redesigned/Lyrics/LyricsText.h"
 #import "Redesigned/Lyrics/LyricsLook.h"
+#import "Redesigned/Lyrics/LandscapeLyrics.h"
 #import "Redesigned/Navbar/Navbar.h"
 #import "Redesigned/NowPlayingBar/NowPlayingBar.h"
 #import "Redesigned/Kit/SGRAccent.h"
@@ -68,7 +69,7 @@ UIViewController *SGLyricsSettingsPage(void) {
     if (!redesigned) [more insertObject:SGGlassLyricsRow() atIndex:0];
     NSMutableArray<SGModSection *> *sections = [NSMutableArray arrayWithObject:SGLyricsSourcesSection(redesigned)];
     if (redesigned) {
-        [sections addObject:SGSection(@"Display", @[SGRLyricsLookRow(), SGLyricsWordTimingRow(), SGRLyricsTextSizesRow(), SGLyricsTranslationLanguageRow(), SGLyricsMeaningsRow()])];
+        [sections addObject:SGSection(@"Display", @[SGRLyricsLookRow(), SGRLandscapeLyricsRow(), SGLyricsWordTimingRow(), SGRLyricsTextSizesRow(), SGLyricsTranslationLanguageRow(), SGLyricsMeaningsRow()])];
         [sections addObject:SGGeminiSection()];
     }
     [sections addObject:SGSection(nil, more)];

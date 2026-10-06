@@ -260,6 +260,11 @@ Redesigned:
                   The lyrics look editor (LyricsLook.m, Lyrics > Lyrics look) scales the size and the gap between
                   lines, picks the weight, scales the blur (0 for none) and sets how bright an unlit line is; the
                   views read it as they lay a song out and restyle in place when it changes
+                  Landscape lyrics (LandscapeLyrics.x, on until switched off, read at launch): the phone held on its
+                  side for a third of a second while a lyrics view shows lines brings up a window of the mod's own
+                  over Spotify's, which runs in portrait only, its content turned a quarter round, with a lyrics view
+                  of its own (SGRKaraokeView.landscape, left out of lyricsOnScreen); upright again, or ✕, closes it.
+                  A lyrics view also restyles when its song's lines are kept again with translations added
     Home/         Home decluttered to music on black (an allow list of its sections: shortcuts, the DJ without its heading and
                   transcript, the shelves of cards), a large title where the filter pills were with the avatar at the trailing
                   edge, the shelves' headings at the Music app's size, each shortcut tile's cover run across it blurred

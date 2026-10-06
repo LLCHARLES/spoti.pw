@@ -1124,6 +1124,8 @@ typedef struct {
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(playerTransitionChanged:) name:SGPlayerTransitionEndedNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(restyle) name:SGRLyricsTextDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lookChanged) name:SGRLyricsLookDidChangeNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(linesKept:) name:SGKaraokeLinesDidChangeNotification object:nil];
+    [SGRKaraokeView.liveViews addObject:self];
     // A locked phone leaves the card in its window, so the link has to be put down by the app going
     // away rather than by the view going: see scheduleLink.
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(scheduleLink) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -1408,6 +1410,48 @@ typedef struct {
             [self placeLinesAnimated:NO];
         });
     });
+}
+
+#pragma mark - lines kept again
+
+// Every lyrics view there is, for the landscape lyrics to know whether lyrics are on screen.
++ (NSHashTable<SGRKaraokeView *> *)liveViews {
+    static NSHashTable *views;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ views = [NSHashTable weakObjectsHashTable]; });
+    return views;
+}
+
++ (BOOL)lyricsOnScreen {
+    for (SGRKaraokeView *view in self.liveViews.allObjects) {
+        if (view.landscape || !view->_showing || !view.window || view.window.hidden) continue;
+        UIView *ancestor = view;
+        BOOL shown = YES;
+        for (; ancestor; ancestor = ancestor.superview) {
+            if (ancestor.hidden || ancestor.alpha < 0.05) { shown = NO; break; }
+        }
+        if (shown) return YES;
+    }
+    return NO;
+}
+
+// The song's lines kept again with something added to them, a translation from Gemini
+// (Shared/LyricsTranslate): what the lyrics menu offers and the style follow.
+- (void)linesKept:(NSNotification *)note {
+    if (!_lines || ![note.object isKindOfClass:NSString.class] || ![note.object isEqualToString:_track]) return;
+    if (SGKaraokeLinesForTrack(_track) != _lines) return;   // new lines: the next tick takes them
+    BOOL spoken = NO, translation = NO;
+    for (SGKaraokeLine *line in _lines) {
+        spoken = spoken || line.pronunciation || line.backing.pronunciation;
+        translation = translation || line.translation.length;
+    }
+    if (spoken == _hasSpoken && translation == _hasTranslation) {
+        if (translation) [self restyle];
+        return;
+    }
+    _hasSpoken = spoken;
+    _hasTranslation = translation;
+    [self restyle];
 }
 
 #pragma mark - the lyrics look editor

@@ -3,7 +3,7 @@
 #import "SGHeadMotion.h"
 
 @interface SGHeadMotionHub : NSObject <CMHeadphoneMotionManagerDelegate>
-@property (nonatomic, strong) CMHeadphoneMotionManager *manager API_AVAILABLE(ios(14.0));
+@property (nonatomic, strong) CMHeadphoneMotionManager *manager;
 @property (nonatomic, strong) NSOperationQueue *queue;
 @property (nonatomic, strong) NSMutableDictionary<NSUUID *, SGHeadMotionHandler> *handlers;
 @property (atomic) BOOL connected;
@@ -28,46 +28,44 @@
     return self;
 }
 
-- (void)headphoneMotionManagerDidConnect:(CMHeadphoneMotionManager *)manager API_AVAILABLE(ios(14.0)) {
+- (void)headphoneMotionManagerDidConnect:(CMHeadphoneMotionManager *)manager {
     self.connected = YES;
     SGLog(@"head motion: headphones connected");
 }
 
-- (void)headphoneMotionManagerDidDisconnect:(CMHeadphoneMotionManager *)manager API_AVAILABLE(ios(14.0)) {
+- (void)headphoneMotionManagerDidDisconnect:(CMHeadphoneMotionManager *)manager {
     self.connected = NO;
     SGLog(@"head motion: headphones disconnected");
 }
 
 // Main thread: the manager is started and stopped from there only.
 - (void)update {
-    if (@available(iOS 14.0, *)) {
-        BOOL wanted;
-        @synchronized (self) { wanted = self.handlers.count > 0; }
-        if (wanted && !self.manager) {
-            CMHeadphoneMotionManager *manager = [CMHeadphoneMotionManager new];
-            if (!manager.isDeviceMotionAvailable) {
-                SGLog(@"head motion: not available on this iPhone");
-                return;
-            }
-            manager.delegate = self;
-            self.manager = manager;
-            __weak SGHeadMotionHub *weakSelf = self;
-            [manager startDeviceMotionUpdatesToQueue:self.queue withHandler:^(CMDeviceMotion *motion, NSError *error) {
-                SGHeadMotionHub *hub = weakSelf;
-                if (!hub || !motion) return;
-                hub.connected = YES;
-                NSArray<SGHeadMotionHandler> *handlers;
-                @synchronized (hub) { handlers = hub.handlers.allValues; }
-                for (SGHeadMotionHandler handler in handlers) handler(motion);
-            }];
-            SGLog(@"head motion: started");
-        } else if (!wanted && self.manager) {
-            [self.manager stopDeviceMotionUpdates];
-            self.manager.delegate = nil;
-            self.manager = nil;
-            self.connected = NO;
-            SGLog(@"head motion: stopped");
+    BOOL wanted;
+    @synchronized (self) { wanted = self.handlers.count > 0; }
+    if (wanted && !self.manager) {
+        CMHeadphoneMotionManager *manager = [CMHeadphoneMotionManager new];
+        if (!manager.isDeviceMotionAvailable) {
+            SGLog(@"head motion: not available on this iPhone");
+            return;
         }
+        manager.delegate = self;
+        self.manager = manager;
+        __weak SGHeadMotionHub *weakSelf = self;
+        [manager startDeviceMotionUpdatesToQueue:self.queue withHandler:^(CMDeviceMotion *motion, NSError *error) {
+            SGHeadMotionHub *hub = weakSelf;
+            if (!hub || !motion) return;
+            hub.connected = YES;
+            NSArray<SGHeadMotionHandler> *handlers;
+            @synchronized (hub) { handlers = hub.handlers.allValues; }
+            for (SGHeadMotionHandler handler in handlers) handler(motion);
+        }];
+        SGLog(@"head motion: started");
+    } else if (!wanted && self.manager) {
+        [self.manager stopDeviceMotionUpdates];
+        self.manager.delegate = nil;
+        self.manager = nil;
+        self.connected = NO;
+        SGLog(@"head motion: stopped");
     }
 }
 
@@ -95,8 +93,7 @@ void SGHeadMotionRemoveObserver(id token) {
 }
 
 BOOL SGHeadMotionSupported(void) {
-    if (@available(iOS 14.0, *)) return YES;
-    return NO;
+    return YES;   // CMHeadphoneMotionManager is iOS 14's, below the mod's floor
 }
 
 BOOL SGHeadMotionConnected(void) {
