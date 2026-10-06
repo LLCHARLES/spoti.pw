@@ -9,6 +9,7 @@
 #import "Settings/SGPageStyle.h"
 #import "Shared/Sing/SGSingController.h"
 #import "Shared/Sing/SGSingModel.h"
+#import "Shared/Sing/SGSpatialVoice.h"
 #import "Sing.h"
 
 // The model's size as the footer and the prompts say it, to the nearest ten megabytes.
@@ -134,8 +135,21 @@ static SGModSection *karaokeSection(void) {
     return SGNotedSection(@"Karaoke", @[sing, model, download, cancel, remove], footer());
 }
 
+// Spatial voice: the voice kept in front with head tracking AirPods, applying at once.
+static SGModSection *spatialSection(void) {
+    SGModRow *spatial = SGOptionRow(@"Spatial voice", @"The voice stays in front as you turn your head", SGKeySpatialVoice);
+    spatial.changed = ^(BOOL on) { SGSpatialVoiceApply(); };
+    SGModRow *follow = SGSwitchRow(@"Follow iPhone", @"Front settles where your head rests", SGKeySpatialVoiceFollow);
+    follow.visible = ^BOOL { return SGFlag(SGKeySpatialVoice, NO); };
+    return SGNotedSection(@"Spatial voice", @[spatial, follow],
+                          @"With AirPods Pro, AirPods Max, AirPods (3rd generation) or later, or Beats with head tracking, "
+                          "Sing places the voice in front of you and keeps it there as you turn your head; the music stays as it was mixed. "
+                          "Head tracking asks for Motion & Fitness access the first time. Applies straight away.");
+}
+
 UIViewController *SGRKaraokeSettingsPage(void) {
-    return [[SGModPage alloc] initWithTitle:@"Karaoke" intro:nil sections:@[karaokeSection()] footer:nil];
+    NSArray<SGModSection *> *sections = SGSingSupported() ? @[karaokeSection(), spatialSection()] : @[karaokeSection()];
+    return [[SGModPage alloc] initWithTitle:@"Karaoke" intro:nil sections:sections footer:nil];
 }
 
 // Beside the main page's row: what Sing would do now, or how far its model has come.

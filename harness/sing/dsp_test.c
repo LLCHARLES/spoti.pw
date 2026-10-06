@@ -89,7 +89,44 @@ static void mixing(void) {
     SGSingMixerSetLevel(&m, NAN);
     assert(m.targetGain == 1);
 }
+// Spatial voice: straight ahead it changes nothing, turned it moves the voice and only the voice, and a
+// bypass still lands exactly on the original.
+static void spatial(void) {
+    SGSingMixer plain, placed;
+    float original[] = {0.4f, 0.2f}, vocal[] = {0.3f, 0.1f}, a[2], b[2];
+    SGSingSpatialSetEnabled(false);
+    SGSingMixerInit(&plain, 44100, 1); SGSingMixerSetLevel(&plain, 0.6f);
+    SGSingSpatialSetEnabled(true); SGSingSpatialSetAzimuth(0);
+    SGSingMixerInit(&placed, 44100, 1); SGSingMixerSetLevel(&placed, 0.6f);
+    assert(placed.spatialTarget == 1 && plain.spatialTarget == 0);
+    for (unsigned i = 0; i < 4410; i++) {
+        SGSingMixerProcess(&plain, original, vocal, a, 1);
+        SGSingMixerProcess(&placed, original, vocal, b, 1);
+    }
+    assert(fabsf(a[0] - b[0]) < 1e-5f && fabsf(a[1] - b[1]) < 1e-5f);
+
+    // A centred voice, the head turned so it should be heard on the right.
+    float centred[] = {0.3f, 0.3f}, silent[] = {0.3f, 0.3f};
+    SGSingSpatialSetAzimuth(1.2f);
+    for (unsigned i = 0; i < 44100; i++) SGSingMixerProcess(&placed, silent, centred, b, 1);
+    assert(b[1] > b[0] + 0.05f);
+    SGSingSpatialSetAzimuth(-1.2f);
+    for (unsigned i = 0; i < 44100; i++) SGSingMixerProcess(&placed, silent, centred, b, 1);
+    assert(b[0] > b[1] + 0.05f);
+    // The instrumental is never moved: no vocals, no change.
+    float none[] = {0, 0};
+    SGSingMixerProcess(&placed, original, none, b, 1);
+    for (unsigned i = 0; i < 64; i++) SGSingMixerProcess(&placed, original, none, b, 1);
+    assert(fabsf(b[0] - original[0]) < 1e-6f && fabsf(b[1] - original[1]) < 1e-6f);
+
+    SGSingMixerBypass(&placed);
+    for (unsigned i = 0; i < 5292; i++) SGSingMixerProcess(&placed, original, vocal, b, 1);
+    assert(placed.spatial == 0 && b[0] == original[0] && b[1] == original[1]);
+    SGSingSpatialSetAzimuth(NAN);
+    assert(SGSingSpatialAzimuth() == 0);
+    SGSingSpatialSetEnabled(false);
+}
 int main(void) {
-    rings(); mixing();
-    puts("sing: wraparound, full/empty, 100000 concurrent packets, ramps and limiter passed");
+    rings(); mixing(); spatial();
+    puts("sing: wraparound, full/empty, 100000 concurrent packets, ramps, limiter and spatial voice passed");
 }

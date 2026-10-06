@@ -140,6 +140,13 @@ Shared:
                   background URL session, checks each against a size and a SHA-256 pinned in the code, and moves
                   them into Application Support/spoti.pw/Sing only when all are right (SingModel.x reconnects at
                   launch). Tested against harness/sing/ (the download against a local server, model_test.py)
+                  Spatial voice (SGSpatialVoice.m, its switch on the Karaoke page): with head tracking AirPods the
+                  separated vocals are panned against the head's turn in SGSingDSP's mixer -- constant power, the far
+                  ear up to 0.66 ms later and shadowed -- so the voice stays in front while the instrumental stays
+                  as mixed; Follow iPhone lets front settle where the head rests over eight seconds. It ramps in
+                  and out with the level, so a bypass still lands on the untouched original (harness/sing/dsp_test.c)
+    HeadMotion/   AirPods head tracking, one CMHeadphoneMotionManager the features share, running only while one asks
+                  (SGHeadMotion.h); NSMotionUsageDescription is added to the IPA by merge-local-network-plist.py
     Player/       the player's open and close announced (PlayerEvents.x), what the player is doing read through
                   one hook for every feature that wants it (PlayerState.x), the lock screen widget's flags, and in the
                   more button's menu Speed and pitch: both done to Spotify's audio by Apple's time and pitch unit, put
