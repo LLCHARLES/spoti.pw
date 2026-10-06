@@ -100,10 +100,34 @@ static void suite(void) {
 
 }
 
+// A small nod, half the size of the default one: missed at the default scale, caught once learned.
+static Pose smallNod(double t) {
+    double p = t < 0.8 ? -0.09 * sin(2 * kPi * 2.5 * t) : 0;
+    return (Pose){0.05 + p, 0.3};
+}
+
+static void learned(void) {
+    SGHeadGestureDetector d = {0};
+    SGHeadGestureReset(&d);
+    clear();
+    run(&d, still, 1); run(&d, smallNod, 1); run(&d, still, 1);
+    assert(counts[SGHeadGestureNod] == 0);
+    d.nodScale = 0.45f;
+    SGHeadGestureReset(&d);
+    assert(d.nodScale == 0.45f);
+    clear();
+    run(&d, still, 1); run(&d, smallNod, 1); run(&d, still, 1);
+    assert(counts[SGHeadGestureNod] == 1);
+    // A listener who nods softly still does not trip it nodding along.
+    clear();
+    run(&d, groove, 10); run(&d, still, 1);
+    assert(counts[SGHeadGestureNod] == 0);
+}
+
 int main(void) {
     // AirPods report at about 25 Hz; the detector should not care if that changes.
     double rates[] = {25, 50, 100};
-    for (unsigned i = 0; i < 3; i++) { kRate = rates[i]; suite(); }
+    for (unsigned i = 0; i < 3; i++) { kRate = rates[i]; suite(); learned(); }
     puts("head gestures: nod, shake, groove, look down, diagonal, seam and gaps passed at 25, 50 and 100 Hz");
     return 0;
 }

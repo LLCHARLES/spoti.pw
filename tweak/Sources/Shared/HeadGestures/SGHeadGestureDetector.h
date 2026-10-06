@@ -20,6 +20,9 @@ typedef struct {
 } SGHeadGestureAxis;
 
 typedef struct {
+    // How hard this listener nods and shakes against the defaults, learned (HeadGesturesSettings.m): the
+    // speeds and turns a swing needs are scaled by these. 0 is taken as 1.
+    float nodScale, shakeScale;
     bool started;
     double lastTime, pitch, yaw;   // the previous reading
     double pitchRate, yawRate;     // smoothed, radians a second
@@ -27,7 +30,11 @@ typedef struct {
     SGHeadGestureAxis nod, shake;
 } SGHeadGestureDetector;
 
+// Keeps the scales.
 void SGHeadGestureReset(SGHeadGestureDetector *detector);
+// The default speed a nod's and a shake's swing starts at, radians a second, for learning a listener's own.
+float SGHeadGestureNodSpeed(void);
+float SGHeadGestureShakeSpeed(void);
 // One reading: its time in seconds and the head's pitch and yaw in radians (Core Motion's attitude).
 // Answers the gesture that has just ended, if one has.
 SGHeadGesture SGHeadGestureFeed(SGHeadGestureDetector *detector, double time, double pitch, double yaw);

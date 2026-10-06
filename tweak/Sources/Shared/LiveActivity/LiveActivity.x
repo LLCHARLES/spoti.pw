@@ -8,6 +8,7 @@
 #import "Core/SGCore.h"
 #import "Headers/SPTPlayer.h"
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/Player/SGLibrary.h"
 #import "LiveActivity.h"
 
 API_AVAILABLE(ios(17.0))
@@ -195,31 +196,17 @@ static void tick(void) API_AVAILABLE(ios(17.0)) {
     });
 }
 
-// Like and dislike from the card: a track saved to or removed from Liked Songs through Spotify's Web API,
-// with the Authorization of Spotify's own requests (Shared/Lyrics), which goes nowhere but Spotify. The card
-// shows the change at once, the way its toggle already flipped, and goes back should Spotify say no.
+// Like and dislike from the card (Shared/Player/SGLibrary.h). The card shows the change at once, the way
+// its toggle already flipped, and goes back should Spotify say no.
 static void saveTrack(NSString *trackID, BOOL save) {
-    NSString *authorization = SGKaraokeSpotifyAuthorization();
-    if (!trackID.length || SGKaraokeIsLocalTrack(trackID) || !authorization) {
-        SGLog(@"live activity: cannot %@ %@ (%@)", save ? @"like" : @"unlike", trackID, authorization ? @"no track" : @"no token yet");
-        return;
-    }
+    if (!trackID.length) return;
     if (save) [sg_liked addObject:trackID];
     else [sg_liked removeObject:trackID];
-    NSURL *url = [NSURL URLWithString:[@"https://api.spotify.com/v1/me/tracks?ids=" stringByAppendingString:trackID]];
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-    request.HTTPMethod = save ? @"PUT" : @"DELETE";
-    [request setValue:authorization forHTTPHeaderField:@"Authorization"];
-    [[NSURLSession.sharedSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            BOOL done = status >= 200 && status < 300;
-            if (!done && save) [sg_liked removeObject:trackID];
-            else if (!done) [sg_liked addObject:trackID];
-            SGLog(@"live activity: %@ %@ -> HTTP %ld%@", save ? @"like" : @"unlike", trackID, (long)status,
-                  error ? [@", " stringByAppendingString:error.localizedDescription] : @"");
-        });
-    }] resume];
+    BOOL asked = SGLibrarySaveTrack(trackID, save, ^(BOOL saved) {
+        if (saved) [sg_liked addObject:trackID];
+        else [sg_liked removeObject:trackID];
+    });
+    if (!asked && save) [sg_liked removeObject:trackID];
 }
 
 // A tap on a track up next: skips ahead to it, found again by its URI in case the queue moved since

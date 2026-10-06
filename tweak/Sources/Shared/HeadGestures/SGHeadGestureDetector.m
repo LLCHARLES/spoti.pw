@@ -24,7 +24,17 @@ static double wrap(double radians) {
 
 static void clearAxis(SGHeadGestureAxis *axis) { memset(axis, 0, sizeof *axis); }
 
-void SGHeadGestureReset(SGHeadGestureDetector *d) { memset(d, 0, sizeof *d); }
+void SGHeadGestureReset(SGHeadGestureDetector *d) {
+    float nod = d->nodScale, shake = d->shakeScale;
+    memset(d, 0, sizeof *d);
+    d->nodScale = nod;
+    d->shakeScale = shake;
+}
+
+float SGHeadGestureNodSpeed(void) { return (float)kNodOn; }
+float SGHeadGestureShakeSpeed(void) { return (float)kShakeOn; }
+
+static double scaleOf(float scale) { return scale > 0.2f && scale < 5 ? scale : 1; }
 
 // The swing that just ended joins the sequence, or ends it if it does not fit.
 static void endSwing(SGHeadGestureAxis *axis, double time, double travel) {
@@ -95,8 +105,9 @@ SGHeadGesture SGHeadGestureFeed(SGHeadGestureDetector *d, double time, double pi
         if (d->nod.swings < 0) clearAxis(&d->nod);
         if (d->shake.swings < 0) clearAxis(&d->shake);
     }
-    bool nod = step(&d->nod, time, dt, d->pitchRate, d->yawRate, kNodOn, kNodTravel, wasStill && d->nod.swings == 0);
-    bool shake = step(&d->shake, time, dt, d->yawRate, d->pitchRate, kShakeOn, kShakeTravel, wasStill && d->shake.swings == 0);
+    double nodScale = scaleOf(d->nodScale), shakeScale = scaleOf(d->shakeScale);
+    bool nod = step(&d->nod, time, dt, d->pitchRate, d->yawRate, kNodOn * nodScale, kNodTravel * nodScale, wasStill && d->nod.swings == 0);
+    bool shake = step(&d->shake, time, dt, d->yawRate, d->pitchRate, kShakeOn * shakeScale, kShakeTravel * shakeScale, wasStill && d->shake.swings == 0);
     if (nod && !shake) return SGHeadGestureNod;
     if (shake && !nod) return SGHeadGestureShake;
     return SGHeadGestureNone;

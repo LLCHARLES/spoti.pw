@@ -10,8 +10,11 @@
 #import <UIKit/UIKit.h>
 
 #define SGKeyHeadGestures @"spotifyglass.headGestures"            // off until switched on
-#define SGKeyHeadGestureNod @"spotifyglass.headGestures.nod"      // an SGHeadGestureAction, Play/pause unset
+#define SGKeyHeadGestureNod @"spotifyglass.headGestures.nod"      // an SGHeadGestureAction, Like unset
 #define SGKeyHeadGestureShake @"spotifyglass.headGestures.shake"  // an SGHeadGestureAction, Next track unset
+// How hard this listener nods and shakes against the defaults, in percent, learned on the page; 100 unset.
+#define SGKeyHeadGestureNodScale @"spotifyglass.headGestures.nodScale"
+#define SGKeyHeadGestureShakeScale @"spotifyglass.headGestures.shakeScale"
 
 typedef NS_ENUM(NSInteger, SGHeadGestureAction) {
     SGHeadGestureActionNothing = 0,
@@ -19,7 +22,12 @@ typedef NS_ENUM(NSInteger, SGHeadGestureAction) {
     SGHeadGestureActionNext,
     SGHeadGestureActionPrevious,
     SGHeadGestureActionRestart,
+    SGHeadGestureActionLike,   // saved to Liked Songs (Shared/Player/SGLibrary.h)
 };
+
+// Follows the head for `seconds` and answers with the fastest nod and shake swings seen, radians a second;
+// nil and nil when no head tracking came in. Main thread, the answer too.
+void SGHeadGesturesMeasure(NSTimeInterval seconds, void (^done)(NSNumber *nodSpeed, NSNumber *shakeSpeed));
 
 // Reads the switch and starts or stops following the head. Main thread.
 void SGHeadGesturesApply(void);
