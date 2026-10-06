@@ -208,6 +208,10 @@ Shared:
                   leaves out (MusicHaptics.x). Everything applies at once; nothing plays while Spotify is not the active
                   app. The analyzer is scored on the Mac against harness/haptics/, the hook in the simulator against its
                   sim/, the settings against harness/haptics-page/
+                  iOS Music Haptics (SystemMusicHaptics.x, iOS 18, on until switched off, read at launch): the IPA
+                  declares MusicHapticsSupported, each track's ISRC is asked of Spotify's Web API with the app's own
+                  token and added to the now playing info, so iOS plays its own haptic track in the background and
+                  on the lock screen; while MAMusicHapticsManager says it has one for the song, the mod's steps aside
     LiveActivity/ a Live Activity on the lock screen and in the Dynamic Island in one of three views, the line being
                   sung with the next one under it, the tracks up next (a tap on one skipping ahead to it), or a control
                   menu of tabs, Controls (previous, play and pause, next, shuffle, repeat), Queue and a sleep Timer of

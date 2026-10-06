@@ -469,7 +469,7 @@ static void readLatency(void) {
 }
 
 static void updateListening(void) {
-    BOOL listening = atomic_load(&sg_enabled) && atomic_load(&sg_active);
+    BOOL listening = atomic_load(&sg_enabled) && atomic_load(&sg_active) && !SGSystemMusicHapticsCovers();
     if (atomic_exchange(&sg_listening, listening) == listening) return;
     if (listening) {
         atomic_fetch_add(&sg_generation, 1);
@@ -501,6 +501,8 @@ static void readSettings(void) {
 void SGMusicHapticsSettingsChanged(void) {
     if (!sg_wake) return;
     readSettings();
+    // iOS's own may have taken the song over, or given it back.
+    updateListening();
     // A rumble that is not to play any more stops now rather than with the next event.
     dispatch_semaphore_signal(sg_wake);
 }
