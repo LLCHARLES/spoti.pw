@@ -8,6 +8,7 @@
 #import "Shared/LyricsMeanings/Meanings.h"
 #import "Shared/LyricsTranslate/GeminiTranslate.h"
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/Fonts/AppFont.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Native/Appearance/Appearance.h"
 #import "Native/Navbar/Navbar.h"
@@ -56,6 +57,8 @@ SGModSection *SGAppearanceSection(void) {
     };
     NSMutableArray<SGModRow *> *rows = [NSMutableArray arrayWithObject:SGWithSymbol(redesign, @"sparkles")];
     [rows addObjectsFromArray:SGRedesignedUIStored() ? SGRAppearanceRows() : SGNativeAppearanceRows()];
+    // The font is the text's, not a screen's, so both looks have it.
+    [rows addObject:SGAppFontRow()];
     return SGNotedSection(@"Appearance", rows, @"Changes apply after you restart Spotify.");
 }
 

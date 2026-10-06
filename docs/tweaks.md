@@ -155,6 +155,11 @@ Shared:
                   ear up to 0.66 ms later and shadowed -- so the voice stays in front while the instrumental stays
                   as mixed; Follow iPhone lets front settle where the head rests over eight seconds. It ramps in
                   and out with the level, so a bypass still lands on the untouched original (harness/sing/dsp_test.c)
+    Fonts/        one font for the whole app (Appearance > Font, read at launch): UIFont's system constructors,
+                  preferredFontForTextStyle:, fontWithName:size: and fontWithDescriptor:size: hand back the picked
+                  family (or SF's Rounded, Serif or Mono design) at the same size and nearest weight, for the
+                  system's faces and Spotify's SpotifyMix and Circular ones only, so icon fonts are left alone;
+                  the new font is made with the hooks stood down by a per-thread flag, and cached
     HeadMotion/   AirPods head tracking, one CMHeadphoneMotionManager the features share, running only while one asks
                   (SGHeadMotion.h); NSMotionUsageDescription is added to the IPA by merge-local-network-plist.py
     HeadGestures/ AirPods gestures (Mod Settings > AirPods gestures): a double nod or a shake of the head runs the
