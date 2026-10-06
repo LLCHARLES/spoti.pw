@@ -116,21 +116,34 @@ rm -f "$ROOT/out/.info.plist"
 cyan -i "$IN" -o "$OUT" -f "${FILES[@]}" -l "$ROOT/out/.injection.plist" ${BUNDLE_ID:+-b "$BUNDLE_ID"} ${NAME:+-n "$NAME"} ${ICON:+-k "$ICON"} -w -s --overwrite
 rm -f "$ROOT/out/.injection.plist"
 
-echo "==> loading the App Group shim in the home screen widget"
-WIDGET_BIN="${APP_DIR}PlugIns/WidgetExtension.appex/WidgetExtension"
-if unzip -l "$OUT" "$WIDGET_BIN" >/dev/null 2>&1; then
+# Siri's requests are answered by Spotify's Intents extension, not by the app, and it finds the signed
+# in account through the same App Groups the widget reads: re-signed, it saw an empty group and Siri
+# answered that you need to log in to Spotify. Every extension that serves the widget or Siri gets the
+# shim, so their groups land on the one the app writes to.
+echo "==> loading the App Group shim in the widget and Siri extensions"
+OUT_ABS="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
+PATCHED=0
+for APPEX in $(unzip -Z1 "$OUT" | grep -oE "^${APP_DIR}PlugIns/[^/]+\.appex/" | sort -u); do
   PATCH="$(mktemp -d)"
-  unzip -q "$OUT" "$WIDGET_BIN" -d "$PATCH"
-  "$ROOT/scripts/insert-dylib.py" "$PATCH/$WIDGET_BIN" @rpath/SpotifyGlassAppGroups.dylib
+  unzip -q "$OUT" "${APPEX}Info.plist" -d "$PATCH"
+  POINT="$(plutil -extract NSExtension.NSExtensionPointIdentifier raw -o - "$PATCH/${APPEX}Info.plist" 2>/dev/null || true)"
+  EXEC="$(plutil -extract CFBundleExecutable raw -o - "$PATCH/${APPEX}Info.plist" 2>/dev/null || true)"
+  case "$POINT" in
+    com.apple.widgetkit-extension|com.apple.intents-service|com.apple.intents-ui-service) ;;
+    *) rm -rf "$PATCH"; continue ;;
+  esac
+  BIN="${APPEX}${EXEC}"
+  if [ -z "$EXEC" ] || ! unzip -q "$OUT" "$BIN" -d "$PATCH" 2>/dev/null; then rm -rf "$PATCH"; continue; fi
+  echo "    $(basename "$APPEX") ($POINT)"
+  "$ROOT/scripts/insert-dylib.py" "$PATCH/$BIN" @rpath/SpotifyGlassAppGroups.dylib
   # Fakesigned again with its own entitlements, the way cyan -s left it, for TrollStore.
-  ldid -e "$PATCH/$WIDGET_BIN" > "$PATCH/ents.plist"
-  ldid -S"$PATCH/ents.plist" "$PATCH/$WIDGET_BIN"
-  OUT_ABS="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
-  (cd "$PATCH" && zip -q "$OUT_ABS" "$WIDGET_BIN")
+  ldid -e "$PATCH/$BIN" > "$PATCH/ents.plist"
+  ldid -S"$PATCH/ents.plist" "$PATCH/$BIN"
+  (cd "$PATCH" && zip -q "$OUT_ABS" "$BIN")
   rm -rf "$PATCH"
-else
-  echo "    no WidgetExtension.appex in this IPA"
-fi
+  PATCHED=$((PATCHED + 1))
+done
+[ "$PATCHED" -gt 0 ] || echo "    no widget or Siri extension in this IPA"
 
 echo "==> adding the alternate app icons"
 # A failure leaves the IPA as it was, without them; Mod > App icon then does not show.
