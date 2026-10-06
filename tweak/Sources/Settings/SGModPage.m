@@ -829,7 +829,7 @@ static void showWaiting(UITableViewCell *cell, SGModRow *row) {
 
 // The switch a waiting row waits on, given a small push so the eye goes to it.
 - (void)nudgeSwitchFor:(SGModRow *)row {
-    NSIndexPath *found = nil;
+    __block NSIndexPath *found = nil;
     for (NSUInteger section = 0; section < _shown.count && !found; section++) {
         [_shown[section] enumerateObjectsUsingBlock:^(SGModRow *other, NSUInteger i, BOOL *stop) {
             if ([other.key isEqualToString:row.waitsOnKey]) {
