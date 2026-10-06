@@ -6,223 +6,66 @@ on:
   workflow_dispatch:
     inputs:
       ipa_url:
-        description: "Google Drive file ID or direct URL to the IPA"
+        description: "Direct link to a decrypted Spotify IPA"
         required: true
         type: string
       upload_method:
-        description: "Mode"
-        default: patch
+        description: "Where to put the result"
+        default: artifacts
         type: choice
-        options: [analyze, patch]
+        options: [artifacts, filebin, both]
 
-permissions:
-  contents: write
+env:
+  THEOS: ${{ github.workspace }}/theos
+  # Fallback IPA used when the build is triggered by a push (no manual input).
+  DEFAULT_IPA_URL: "https://www.dropbox.com/scl/fi/dketx2qfh1vjerhmatoi2/Spotify9.1.78.ipa?rlkey=2qq2sl9tmey87jiwfnfw7nxoz&st=6qy2szlo&dl=1"
 
 jobs:
-  ipa-plus:
-    # macOS gives us a maintained Homebrew ldid for re-fakesigning the patched dylib.
+  build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
+
+      - uses: maxim-lobanov/setup-xcode@v1
         with:
-          ref: ${{ github.ref }}
+          xcode-version: latest-stable
+
+      - uses: actions/checkout@v5
+        with:
+          repository: theos/theos
+          path: theos
+          submodules: recursive
 
       - name: Install tools
         run: |
-          set -euo pipefail
-          brew install ldid || echo "ldid unavailable from Homebrew; the patcher will continue and leave installer-side re-signing if needed"
-          command -v ldid || true
-          python3 -m pip install --user requests || python3 -m pip install --user --break-system-packages requests
+          brew install make dpkg ldid
+          python3 -m pip install --break-system-packages git+https://github.com/asdfzxcvbn/pyzule-rw.git
 
       - name: Download IPA
         env:
-          IPA_INPUT: ${{ inputs.ipa_url || '1NjDGboA7c6PQ3sNauWFWzhG4YCeqQ5Q6' }}
+          IPA_URL: ${{ inputs.ipa_url || env.DEFAULT_IPA_URL }}
         run: |
-          set -euo pipefail
-          cat > /tmp/download_drive.py <<'PY'
-          import os, re, sys, urllib.parse
-          import requests
+          mkdir -p ipa
+          curl -fsSL "$IPA_URL" -o ipa/spotify.ipa
+          case "$(file --mime-type -b ipa/spotify.ipa)" in application/zip|application/x-ios-app) ;; *) echo "::error::Not an IPA"; exit 1 ;; esac
 
-          src = os.environ['IPA_INPUT'].strip()
-          if re.fullmatch(r'[A-Za-z0-9_-]{20,}', src):
-              file_id = src
-          else:
-              parsed = urllib.parse.urlparse(src)
-              qs = urllib.parse.parse_qs(parsed.query)
-              file_id = (qs.get('id') or [None])[0]
-              if not file_id:
-                  m = re.search(r'/d/([^/]+)', parsed.path)
-                  file_id = m.group(1) if m else None
-              if not file_id:
-                  # Direct URL fallback.
-                  with requests.get(src, stream=True, timeout=60) as r:
-                      r.raise_for_status()
-                      with open('/tmp/input.ipa', 'wb') as f:
-                          for chunk in r.iter_content(1024 * 1024):
-                              if chunk:
-                                  f.write(chunk)
-                  sys.exit(0)
+      - name: Build and inject tweak (no-Plus build)
+        run: make release
 
-          s = requests.Session()
-          base = 'https://drive.google.com/uc?export=download&id=' + urllib.parse.quote(file_id)
-          r = s.get(base, stream=True, timeout=60)
-          ctype = r.headers.get('content-type', '')
-          if 'text/html' not in ctype.lower():
-              with open('/tmp/input.ipa', 'wb') as f:
-                  for chunk in r.iter_content(1024 * 1024):
-                      if chunk:
-                          f.write(chunk)
-              sys.exit(0)
-
-          html = r.text
-          # Google large-file warning form. Keep this deliberately broad; Drive changes markup often.
-          action = re.search(r'<form[^>]+action="([^"]+)"', html)
-          fields = dict(re.findall(r'<input[^>]+name="([^"]+)"[^>]+value="([^"]*)"', html))
-          if action:
-              url = action.group(1).replace('&amp;', '&')
-              if url.startswith('/'):
-                  url = 'https://drive.google.com' + url
-              params = fields
-          else:
-              confirm = None
-              m = re.search(r'confirm=([0-9A-Za-z_\-]+)', html)
-              if m:
-                  confirm = m.group(1)
-              for k, v in s.cookies.items():
-                  if k.startswith('download_warning'):
-                      confirm = v
-              url = 'https://drive.usercontent.google.com/download'
-              params = {'id': file_id, 'export': 'download'}
-              if confirm:
-                  params['confirm'] = confirm
-
-          with s.get(url, params=params, stream=True, timeout=60) as rr:
-              rr.raise_for_status()
-              with open('/tmp/input.ipa', 'wb') as f:
-                  for chunk in rr.iter_content(1024 * 1024):
-                      if chunk:
-                          f.write(chunk)
-          PY
-          python3 /tmp/download_drive.py
-          ls -lh /tmp/input.ipa
-          file /tmp/input.ipa
-          unzip -tq /tmp/input.ipa >/dev/null
-
-      - name: Analyze Plus strings
-        if: inputs.upload_method == 'analyze'
-        run: |
-          set -euo pipefail
-          rm -rf /tmp/ipa
-          mkdir -p /tmp/ipa arena-results
-          unzip -q /tmp/input.ipa -d /tmp/ipa
-          APP_DIR="$(find /tmp/ipa/Payload -maxdepth 1 -type d -name '*.app' | head -1)"
-          REPORT="arena-results/ipa-plus-analysis.md"
-          python3 - <<'PY' "$APP_DIR" "$REPORT" /tmp/input.ipa
-          from pathlib import Path
-          import os, subprocess, sys
-          app = Path(sys.argv[1])
-          report = Path(sys.argv[2])
-          ipa = Path(sys.argv[3])
-          needles = ('plus','paywall','purchase','subscription','storekit','unlock','locked','entitlement','license','supporter','premium','trial','receipt','product','offer')
-          with report.open('w', encoding='utf-8') as out:
-              out.write('# IPA Plus analysis\n\n')
-              out.write(f'Input size: {ipa.stat().st_size} bytes\n')
-              out.write(f'App dir: {app}\n\n')
-              out.write('## Top-level bundle files\n')
-              for p in sorted(app.rglob('*'))[:300]:
-                  if p.is_file() or p.is_dir():
-                      try:
-                          out.write(str(p.relative_to(app)) + '\n')
-                      except Exception:
-                          pass
-              out.write('\n## Files containing Plus-related strings\n')
-              for p in sorted(x for x in app.rglob('*') if x.is_file() and x.stat().st_size > 4096):
-                  try:
-                      text = subprocess.check_output(['strings','-a',str(p)], text=True, errors='ignore')
-                  except Exception:
-                      continue
-                  hits = sorted({line for line in text.splitlines() if any(n in line.lower() for n in needles)})[:240]
-                  if hits:
-                      out.write(f'### {p.relative_to(app.parent.parent)}\n```\n')
-                      out.write('\n'.join(hits))
-                      out.write('\n```\n\n')
-          PY
-          if [ -f "$APP_DIR/Frameworks/spotifyglass.dylib" ]; then
-            cp "$APP_DIR/Frameworks/spotifyglass.dylib" arena-results/spotifyglass.dylib
-            gzip -9c "$APP_DIR/Frameworks/spotifyglass.dylib" > arena-results/spotifyglass.dylib.gz
-          fi
-          sed -n '1,220p' "$REPORT"
-
-      - name: Commit analysis
-        if: inputs.upload_method == 'analyze'
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add arena-results/ipa-plus-analysis.md arena-results/spotifyglass.dylib arena-results/spotifyglass.dylib.gz
-          git commit -m 'Analyze Plus gate in IPA' || exit 0
-          git push origin HEAD:${GITHUB_REF_NAME}
-
-      - name: Patch IPA in-place
-        if: github.event_name == 'push' || inputs.upload_method == 'patch'
-        run: |
-          set -euo pipefail
-          python3 scripts/patch-ipa-noplus.py /tmp/input.ipa -o /tmp/spoti.pw-0.50.0-noplus.ipa
-          ls -lh /tmp/spoti.pw-0.50.0-noplus.ipa
-          shasum -a 256 /tmp/spoti.pw-0.50.0-noplus.ipa
-
-      - name: Upload patched IPA artifact
-        if: github.event_name == 'push' || inputs.upload_method == 'patch'
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
+        if: inputs.upload_method != 'filebin'
         with:
-          name: spoti-pw-0.50.0-noplus-ipa
-          path: /tmp/spoti.pw-0.50.0-noplus.ipa
-          retention-days: 7
+          name: spoti.ipa
+          path: out/*.ipa
+          if-no-files-found: error
 
-      - name: Upload patched IPA to filebin
-        if: github.event_name == 'push' || inputs.upload_method == 'patch'
+      - name: Upload to filebin.net
+        if: inputs.upload_method != 'artifacts'
         run: |
-          set -euo pipefail
-          BIN="spoti-pw-noplus-${GITHUB_RUN_ID}"
-          NAME="spoti.pw-0.50.0-noplus.ipa"
-          URL="https://filebin.net/${BIN}/${NAME}"
-          curl --fail --retry 3 --retry-delay 5 --upload-file /tmp/spoti.pw-0.50.0-noplus.ipa "$URL"
-          SHA256="$(shasum -a 256 /tmp/spoti.pw-0.50.0-noplus.ipa | awk '{print $1}')"
-          SIZE="$(python3 - <<'PY'
-          from pathlib import Path
-          print(Path('/tmp/spoti.pw-0.50.0-noplus.ipa').stat().st_size)
-          PY
-          )"
-          mkdir -p arena-results
-          cat > arena-results/patched-ipa-link.md <<EOF
-          # Patched IPA
-
-          - Output: \`spoti.pw-0.50.0-noplus.ipa\`
-          - Download: ${URL}
-          - GitHub Actions artifact: \`spoti-pw-0.50.0-noplus-ipa\` on run ${GITHUB_RUN_ID}
-          - Size: ${SIZE} bytes
-          - SHA-256: \`${SHA256}\`
-
-          Patch applied to \`Payload/Spotify.app/Frameworks/spotifyglass.dylib\`:
-
-          - \`-[SGModRow plus] -> false\`
-          - \`-[SGModPage plusFeature] -> nil\`
-          - \`-[SGOrderController plusFeature] -> nil\`
-          - \`-[SGPage plusLocked] -> false\`
-          - \`-[SGModPage locks:] -> false\`
-          - \`-[SGOrderController locked] -> false\`
-          - \`-[SGModSliderCell locked] -> false\`
-          - \`-[SGDSPSliderCell locked] -> false\`
-          - \`-[SGDSPErrorPage offeredPlus] -> false\`
-          EOF
-          cat arena-results/patched-ipa-link.md
-
-      - name: Commit patch link
-        if: github.event_name == 'push' || inputs.upload_method == 'patch'
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add arena-results/patched-ipa-link.md
-          git commit -m 'Add patched IPA download link' || exit 0
-          git push origin HEAD:${GITHUB_REF_NAME}
+          BIN="spotifyglass-${{ github.run_id }}"
+          echo "### filebin.net download" >> "$GITHUB_STEP_SUMMARY"
+          for f in out/*.ipa; do
+            curl -fsS -X POST -H "Content-Type: application/octet-stream" --data-binary "@$f" "https://filebin.net/$BIN/$(basename "$f")" >/dev/null
+            echo "- https://filebin.net/$BIN/$(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "- _filebin deletes bins after a few days of inactivity, download promptly._" >> "$GITHUB_STEP_SUMMARY"
